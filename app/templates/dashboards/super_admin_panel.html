@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="h-screen bg-slate-100 text-gray-800 flex">
+
+<!-- Sidebar -->
+<aside class="w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white flex flex-col shadow-xl">
+    <div class="px-6 py-6 text-2xl font-bold tracking-wide border-b border-blue-700">
+        Super Admin
+    </div>
+
+    <nav class="flex-1 px-4 py-6 space-y-3">
+        <a href="{% url 'admin_dashboard' %}" class="flex items-center px-4 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 transition font-medium">
+            📊 Planning
+        </a>
+        <a href="{% url 'user_dashboard' %}" class="flex items-center px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium">
+            🏭 Production
+        </a>
+        <a href="{% url 'store_dashboard' %}" class="flex items-center px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium">
+            📦 Store
+        </a>
+        <a href="{% url 'accounts_dashboard' %}" class="flex items-center px-4 py-3 rounded-lg hover:bg-blue-700 transition font-medium">
+            💰 Accounts
+        </a>
+    </nav>
+
+    <form action="{% url 'logout' %}" method="post" class="p-4 border-t border-blue-700">
+        {% csrf_token %}
+        <button class="w-full bg-red-500 hover:bg-red-600 py-2 rounded-lg font-semibold transition">
+            Logout
+        </button>
+    </form>
+</aside>
+
+<!-- Main Content -->
+<div class="flex-1 flex flex-col">
+
+    <!-- Top Bar -->
+    <header class="bg-white shadow-sm px-8 py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-semibold text-gray-700">Dashboard Overview</h1>
+        <span class="text-sm text-gray-500">Welcome, Super Admin</span>
+    </header>
+
+    <!-- Dashboard Cards -->
+    <main class="flex-1 p-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
+
+            <!-- Card -->
+            <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition p-6 border-t-4 border-blue-600">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Planning Dashboard</h3>
+                <p class="text-gray-500 text-sm mb-6">View and manage job cards.</p>
+                <a href="{% url 'admin_dashboard' %}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium transition">
+                    Open
+                </a>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition p-6 border-t-4 border-green-600">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Production Dashboard</h3>
+                <p class="text-gray-500 text-sm mb-6">Monitor workers & updates.</p>
+                <a href="{% url 'user_dashboard' %}" class="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg font-medium transition">
+                    Open
+                </a>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition p-6 border-t-4 border-yellow-500">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Store Dashboard</h3>
+                <p class="text-gray-500 text-sm mb-6">Inventory & stock control.</p>
+                <a href="{% url 'store_dashboard' %}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2 rounded-lg font-medium transition">
+                    Open
+                </a>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition p-6 border-t-4 border-purple-600">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Accounts Dashboard</h3>
+                <p class="text-gray-500 text-sm mb-6">POs & financial tracking.</p>
+                <a href="{% url 'accounts_dashboard' %}" class="inline-block bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg font-medium transition">
+                    Open
+                </a>
+            </div>
+
+        </div>
+    </main>
+
+</div>
+</body>
+</html>

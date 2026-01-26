@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Job Cards</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-slate-100 text-gray-800">
+
+<!-- HEADER -->
+<header class="bg-indigo-900 text-white shadow">
+  <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between items-center">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Job Cards</h1>
+      <p class="text-indigo-200 text-sm mt-1">
+        Generated from Product Mappings (no separate JobCard model)
+      </p>
+    </div>
+    <a href="{% url 'product_mapping' %}"
+       class="mt-4 sm:mt-0 bg-indigo-500 hover:bg-indigo-600 px-5 py-2 rounded-lg font-semibold shadow transition">
+      + Create Product Mapping
+    </a>
+  </div>
+</header>
+
+<!-- CONTENT -->
+<main class="max-w-7xl mx-auto px-6 py-8">
+
+{% if grouped %}
+  {% for grp in grouped %}
+  <!-- MAPPING CARD -->
+  <section class="bg-white rounded-2xl shadow-lg mb-10 overflow-hidden">
+
+    <!-- Mapping Header -->
+    <div class="bg-slate-50 border-b px-6 py-4">
+      <h2 class="text-xl font-bold text-indigo-800">
+        Mapping #{{ grp.mapping.pk }}
+        <span class="text-gray-400 font-medium">—</span>
+        {{ grp.mapping.po_no }}
+        <span class="text-gray-400 font-medium">—</span>
+        {{ grp.mapping.item_name }}
+      </h2>
+
+      <div class="mt-2 text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1">
+        <span>
+          <strong>Date:</strong>
+          {{ grp.mapping.entry_date|default:grp.mapping.created_at.date }}
+        </span>
+        <span>
+          <strong>Customer:</strong>
+          {% if grp.mapping.customer %}{{ grp.mapping.customer.customer_name }}{% else %}—{% endif %}
+        </span>
+        <span>
+          <strong>Drawing No:</strong> {{ grp.mapping.drawing_no }}
+        </span>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="overflow-x-auto">
+      <table class="min-w-full border-collapse text-sm">
+        <thead class="bg-indigo-600 text-white sticky top-0">
+          <tr>
+            <th class="px-4 py-3 text-left">Item Details</th>
+            <th class="px-3 py-3">ID</th>
+            <th class="px-3 py-3">OD</th>
+            <th class="px-3 py-3">T1</th>
+            <th class="px-3 py-3">T2</th>
+            <th class="px-3 py-3">Die No</th>
+            <th class="px-3 py-3">Requested</th>
+            <th class="px-3 py-3">Stock</th>
+            <th class="px-3 py-3">Balance</th>
+            <th class="px-3 py-3">Required</th>
+            <th class="px-3 py-3">JC Ref</th>
+          </tr>
+        </thead>
+
+        <tbody class="divide-y">
+        {% for pname, data in grp.groups.items %}
+          <!-- Parent Group Row -->
+          <tr class="bg-indigo-50 font-semibold text-indigo-900">
+            <td class="px-4 py-2">{{ pname }}</td>
+            <td colspan="10"></td>
+          </tr>
+
+          {% if data.parent %}
+          <!-- Parent Item -->
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-2">{{ data.parent.item_description }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.id_val }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.od }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.t1 }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.t2 }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.die_no }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.actual_qty }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.stock_qty }}</td>
+            <td class="px-3 py-2 text-center">{{ data.parent.balance_for_production }}</td>
+            <td class="px-3 py-2 text-center font-semibold text-red-600">
+              {{ data.parent.required_qty }}
+            </td>
+            <td class="px-3 py-2 text-center text-indigo-700 font-mono">
+              {{ data.parent.job_card_ref }}
+            </td>
+          </tr>
+          {% endif %}
+
+          {% for ch in data.children %}
+          <!-- Child Item -->
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-2 pl-10 text-gray-700">↳ {{ ch.name }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.id_val }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.od }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.t1 }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.t2 }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.die_no }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.actual_qty }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.stock_qty }}</td>
+            <td class="px-3 py-2 text-center">{{ ch.item.balance_for_production }}</td>
+            <td class="px-3 py-2 text-center font-semibold text-red-600">
+              {{ ch.item.required_qty }}
+            </td>
+            <td class="px-3 py-2 text-center text-indigo-700 font-mono">
+              {{ ch.item.job_card_ref }}
+            </td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+  {% endfor %}
+{% else %}
+  <div class="bg-white rounded-xl shadow p-8 text-center text-gray-600">
+    No job cards created yet.
+  </div>
+{% endif %}
+
+</main>
+</body>
+</html>

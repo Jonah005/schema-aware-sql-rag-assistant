@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Job Card</title>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #2c3e50;
+      color: white;
+      padding: 20px 40px;
+      border-bottom: 4px solid #2980b9;
+    }
+    header h2 {
+      font-size: 1.8rem;
+      margin: 0;
+    }
+    .container {
+      padding: 30px 40px;
+      max-width: 800px;
+      margin: auto;
+    }
+    .section {
+      background: white;
+      padding: 25px 30px;
+      border-radius: 10px;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+    h3 {
+      color: #2980b9;
+      margin-bottom: 20px;
+    }
+    form input, form select, form textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 0.95rem;
+    }
+    form button {
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s ease;
+      font-size: 0.95rem;
+    }
+    form button:hover {
+      background-color: #1e8449;
+    }
+    a.back-button {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 8px 18px;
+      background-color: #34495e;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+      font-weight: bold;
+    }
+    a.back-button:hover {
+      background-color: #2c3e50;
+    }
+    body.dark-mode {
+      background-color: #181a1b !important;
+      color: #e0e0e0 !important;
+    }
+    body.dark-mode .container,
+    body.dark-mode .section,
+    body.dark-mode .form-section,
+    body.dark-mode .form-group {
+      background: #23272b !important;
+      color: #e0e0e0 !important;
+    }
+    body.dark-mode th,
+    body.dark-mode td {
+      background: #23272b !important;
+      color: #e0e0e0 !important;
+      border-color: #444 !important;
+    }
+    body.dark-mode thead {
+      background-color: #222 !important;
+      color: #ffd600 !important;
+    }
+    body.dark-mode form input,
+    body.dark-mode form select,
+    body.dark-mode form textarea {
+      background: #181a1b !important;
+      color: #e0e0e0 !important;
+      border-color: #444 !important;
+    }
+    body.dark-mode form button {
+      background-color: #2980b9 !important;
+      color: #fff !important;
+    }
+    body.dark-mode header {
+      background-color: #222 !important;
+      color: #e0e0e0 !important;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Create Job Card</h2>
+  </header>
+
+  <div class="container">
+    <div class="section">
+      <h3>Job Card Details</h3>
+      {% if form.errors %}
+  <div class="alert alert-danger">
+    <strong>Form errors:</strong>
+    {{ form.errors }}
+  </div>
+{% endif %}
+      <form method="post">
+        {% csrf_token %}
+      {% load static %}
+        <div id="item_name_holder">
+          <label for="id_item_name">Item Name:</label>
+          <select name="item_name" id="id_item_name" class="form-control">
+            <option value="">Select Item Name</option>
+            {% for item in store_items %}
+              <option value="{{ item.item_name }}">{{ item.item_name }}</option>
+            {% endfor %}
+            <option value="new">+ Add New Item</option>
+          </select>
+          <input type="text" name="new_item_name" id="new_item_name" class="form-control" style="display:none; margin-top:10px;" placeholder="Enter new item name" />
+        </div>
+        <div id="material_holder" style="display:none;">
+          <label for="id_material_type">Material Type:</label>
+          <select name="material_type" id="id_material_type" class="form-control"></select>
+          <input type="text" name="material_type" id="new_material_type" class="form-control" style="display:none; margin-top:10px;" placeholder="Enter new material type" />
+        </div>
+        <div id="dimension_holder" style="display:none;">
+          <label for="id_size_dimension">Size/Dimension:</label>
+          <select name="size_dimension" id="id_size_dimension" class="form-control"></select>
+          <input type="text" name="size_dimension" id="new_size_dimension" class="form-control" style="display:none; margin-top:10px;" placeholder="Enter new size/dimension" />
+        </div>
+          <div id="store_qty_holder" style="display:none; margin-bottom:15px;">
+            <label>Quantity in Store:</label>
+            <div id="store_qty_display" style="font-weight:bold; color:#2980b9;"></div>
+          </div>
+          <div id="required_qty_holder">
+            <label for="id_required_qty">Required Quantity:</label>
+            <input type="number" name="required_qty" id="id_required_qty" class="form-control" />
+          </div>
+        {% for field in form %}
+          {% if field.name != 'item_name' and field.name != 'required_qty' %}
+            <div>
+              {{ field.label_tag }}<br>
+              {{ field }}
+              {% if field.help_text %}
+                <small style="color: #888;">{{ field.help_text }}</small>
+              {% endif %}
+              {% if field.errors %}
+                <div style="color:red;">{{ field.errors }}</div>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+        <button type="submit">Save Job Card</button>
+      </form>
+      <script>
+      $(document).ready(function() {
+        var storeItems = [
+          {% for item in store_items %}
+            {
+              item_name: "{{ item.item_name }}",
+              material_type: "{{ item.material_type }}",
+              size_dimension: "{{ item.size_dimension }}",
+              quantity_in_stock: {{ item.quantity_in_stock }}
+            },
+          {% endfor %}
+        ];
+
+        // Populate item_name dropdown with unique names
+        var uniqueNames = [...new Set(storeItems.map(item => item.item_name))];
+        $('#id_item_name').select2({ width: '100%' });
+
+        $('#id_item_name').on('change', function() {
+          var selectedName = $(this).val();
+          if (selectedName === 'new') {
+            $('#new_item_name').show().prop('required', true);
+            $('#material_holder').show();
+            $('#dimension_holder').show();
+            $('#id_material_type').hide();
+            $('#id_size_dimension').hide();
+            $('#new_material_type').show().prop('required', true);
+            $('#new_size_dimension').show().prop('required', true);
+            $('#id_material_type').empty();
+            $('#id_size_dimension').empty();
+            return;
+          } else {
+            $('#new_item_name').hide().prop('required', false);
+            $('#id_material_type').show();
+            $('#id_size_dimension').show();
+            $('#new_material_type').hide().prop('required', false);
+            $('#new_size_dimension').hide().prop('required', false);
+          }
+          if (!selectedName) {
+            $('#material_holder').hide();
+            $('#dimension_holder').hide();
+            $('#id_material_type').empty();
+            $('#id_size_dimension').empty();
+            return;
+          }
+          // Filter materials for selected item name
+          var materials = storeItems.filter(item => item.item_name === selectedName).map(item => item.material_type);
+          var uniqueMaterials = [...new Set(materials)];
+          var $materialType = $('#id_material_type');
+          $materialType.empty();
+          $materialType.append($('<option>', { value: '', text: 'Select Material' }));
+          uniqueMaterials.forEach(function(mt) {
+            $materialType.append($('<option>', { value: mt, text: mt }));
+          });
+          $('#material_holder').show();
+          $('#dimension_holder').hide();
+          $('#id_size_dimension').empty();
+        });
+
+        $('#id_material_type').on('change', function() {
+          var selectedName = $('#id_item_name').val();
+          var selectedMaterial = $(this).val();
+          if (!selectedMaterial) {
+            $('#dimension_holder').hide();
+            $('#id_size_dimension').empty();
+            $('#store_qty_holder').hide();
+            $('#store_qty_display').text('');
+            return;
+          }
+          // Filter dimensions for selected item name and material
+          var dimensions = storeItems.filter(item => item.item_name === selectedName && item.material_type === selectedMaterial).map(item => item.size_dimension);
+          var uniqueDimensions = [...new Set(dimensions)];
+          var $sizeDimension = $('#id_size_dimension');
+          $sizeDimension.empty();
+          $sizeDimension.append($('<option>', { value: '', text: 'Select Dimension' }));
+          uniqueDimensions.forEach(function(sd) {
+            $sizeDimension.append($('<option>', { value: sd, text: sd }));
+          });
+          $('#dimension_holder').show();
+          $('#store_qty_holder').hide();
+          $('#store_qty_display').text('');
+        });
+
+        $('#id_size_dimension').on('change', function() {
+          var selectedName = $('#id_item_name').val();
+          var selectedMaterial = $('#id_material_type').val();
+          var selectedDimension = $(this).val();
+          if (!selectedDimension) {
+            $('#store_qty_holder').hide();
+            $('#store_qty_display').text('');
+            return;
+          }
+          // Find the store item
+          var match = storeItems.find(item => item.item_name === selectedName && item.material_type === selectedMaterial && item.size_dimension === selectedDimension);
+          if (match) {
+            $('#store_qty_display').text(match.quantity_in_stock + ' in store');
+            $('#store_qty_holder').show();
+          } else {
+            $('#store_qty_display').text('');
+            $('#store_qty_holder').hide();
+          }
+        });
+      });
+      </script>
+      <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if(localStorage.getItem('adminDarkMode') === 'true') {
+      document.body.classList.add('dark-mode');
+    }
+  });
+</script>
+      <a href="{% url 'admin_dashboard' %}" class="back-button">⬅ Back to Dashboard</a>
+    </div>
+  </div>
+</body>
+</html>

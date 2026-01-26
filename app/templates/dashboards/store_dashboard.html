@@ -1,0 +1,161 @@
+{% if messages %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var msgs = [
+      {% for message in messages %}"{{ message|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}
+    ];
+    msgs.forEach(function(m) { if (m) alert(m); });
+  });
+</script>
+{% endif %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Store Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-slate-100 text-gray-800">
+
+<!-- Header -->
+<header class="bg-white shadow sticky top-0 z-50">
+  <div class="max-w-[95%] mx-auto px-6 py-4 flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-blue-700">Store Dashboard</h1>
+
+    <div class="flex items-center gap-4">
+      <a href="{% url 'stock_manage' %}"
+         class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow">
+        Manage Stock
+      </a>
+
+      <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold shadow">
+          Logout
+        </button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[95%] mx-auto px-6 py-8 space-y-12">
+
+<!-- INVENTORY TABLE -->
+<section>
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-semibold text-gray-700">Current Stock Inventory</h2>
+  </div>
+
+  <div class="bg-white rounded-xl shadow overflow-x-auto">
+    <table class="min-w-[1400px] w-full text-sm text-left">
+      <thead class="bg-blue-600 text-white sticky top-0">
+        <tr>
+          <th class="px-4 py-3">Item Code</th>
+          <th class="px-4 py-3">Item Name</th>
+          <th class="px-4 py-3">ID</th>
+          <th class="px-4 py-3">OD</th>
+          <th class="px-4 py-3">T1</th>
+          <th class="px-4 py-3">T2</th>
+          <th class="px-4 py-3">Material</th>
+          <th class="px-4 py-3">Die No</th>
+          <th class="px-4 py-3">Stock</th>
+          <th class="px-4 py-3">Rack Main</th>
+          <th class="px-4 py-3">Rack Sub</th>
+          <th class="px-4 py-3">Updated</th>
+          <th class="px-4 py-3 text-center">Action</th>
+        </tr>
+      </thead>
+
+      <tbody class="divide-y">
+        {% for item in items %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-2">{{ item.item_code }}</td>
+          <td class="px-4 py-2 font-medium">{{ item.item_name }}</td>
+          <td class="px-4 py-2">{{ item.inner_id }}</td>
+          <td class="px-4 py-2">{{ item.od }}</td>
+          <td class="px-4 py-2">{{ item.t1 }}</td>
+          <td class="px-4 py-2">{{ item.t2 }}</td>
+          <td class="px-4 py-2">
+            {% if item.material %}{{ item.material.material_name }}{% endif %}
+          </td>
+          <td class="px-4 py-2">{{ item.die_no }}</td>
+          <td class="px-4 py-2 font-semibold text-blue-700">{{ item.current_stock }}</td>
+          <td class="px-4 py-2">{{ item.rack_main }}</td>
+          <td class="px-4 py-2">{{ item.rack_sub }}</td>
+          <td class="px-4 py-2 text-xs text-gray-500">
+            {{ item.last_updated|date:"Y-m-d H:i" }}
+          </td>
+          <td class="px-4 py-2 text-center">
+            <a href="{% url 'stock_manage' %}?item_code={{ item.item_code }}"
+               class="inline-block bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md font-semibold">
+              Manage
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="13" class="text-center py-6 text-gray-500 italic">
+            No items in store
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- HISTORY TABLE -->
+<section>
+  <h2 class="text-xl font-semibold text-gray-700 mb-4">Stock Update History</h2>
+
+  <div class="bg-white rounded-xl shadow overflow-x-auto">
+    <table class="min-w-[1400px] w-full text-sm">
+      <thead class="bg-slate-700 text-white">
+        <tr>
+          <th class="px-4 py-3">Date</th>
+          <th class="px-4 py-3">Item Code</th>
+          <th class="px-4 py-3">Item</th>
+          <th class="px-4 py-3">Action</th>
+          <th class="px-4 py-3">Qty</th>
+          <th class="px-4 py-3">Prev</th>
+          <th class="px-4 py-3">Result</th>
+          <th class="px-4 py-3">Customer</th>
+          <th class="px-4 py-3">Rack</th>
+          <th class="px-4 py-3">Remark</th>
+        </tr>
+      </thead>
+
+      <tbody class="divide-y">
+        {% for h in histories %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-2 text-xs">{{ h.created_at|date:"Y-m-d H:i" }}</td>
+          <td class="px-4 py-2">{{ h.store_item.item_code }}</td>
+          <td class="px-4 py-2">{{ h.store_item.item_name }}</td>
+          <td class="px-4 py-2 font-semibold">{{ h.get_action_display }}</td>
+          <td class="px-4 py-2">{{ h.qty }}</td>
+          <td class="px-4 py-2">{{ h.previous_stock }}</td>
+          <td class="px-4 py-2 font-semibold text-green-600">{{ h.resulting_stock }}</td>
+          <td class="px-4 py-2">
+            {% if h.customer %}{{ h.customer.customer_name }}{% endif %}
+          </td>
+          <td class="px-4 py-2">{{ h.rack_main }} / {{ h.rack_sub }}</td>
+          <td class="px-4 py-2">{{ h.remark }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="10" class="text-center py-6 text-gray-500 italic">
+            No stock history available
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

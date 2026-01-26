@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Transfer Slip - Production</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background:#f5f7fa; }
+    .slip { max-width:1000px; margin:32px auto; background:#fff; padding:18px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08);} 
+    table th { background:#fce9e9; }
+    .row-green td { background: #e6f4d9; }
+    @media print { .no-print { display:none } }
+  </style>
+</head>
+<body>
+  <div class="slip">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <h2 class="text-xl font-semibold">TRANSFER SLIP</h2>
+        <p class="text-sm text-gray-600">Date: {{ date }}</p>
+      </div>
+      <div class="no-print">
+        <button onclick="window.print()" class="bg-blue-600 text-white px-3 py-1 rounded">Print</button>
+      </div>
+    </div>
+
+    <table class="w-full border-collapse border" border="1">
+      <thead>
+        <tr class="text-sm">
+          <th class="px-2 py-2">SL NO</th>
+          <th class="px-2 py-2">JC NO</th>
+          <th class="px-2 py-2">OA NO</th>
+          <th class="px-2 py-2">CUST CODE</th>
+          <th class="px-2 py-2">ITEM NAME</th>
+          <th class="px-2 py-2">ID</th>
+          <th class="px-2 py-2">OD</th>
+          <th class="px-2 py-2">T1</th>
+          <th class="px-2 py-2">QTY</th>
+          <th class="px-2 py-2">REMARKS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="row-green text-sm">
+          <td class="px-2 py-1">{{ r.sl_no }}</td>
+          <td class="px-2 py-1">{{ r.jc_no }}</td>
+          <td class="px-2 py-1">{{ r.oa_no }}</td>
+          <td class="px-2 py-1">{{ r.cust_code }}</td>
+          <td class="px-2 py-1">{{ r.item_name }}</td>
+          <td class="px-2 py-1">{{ r.id }}</td>
+          <td class="px-2 py-1">{{ r.od }}</td>
+          <td class="px-2 py-1">{{ r.t1 }}</td>
+          <td class="px-2 py-1 text-center">{{ r.qty }}</td>
+          <td class="px-2 py-1">{{ r.remarks }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="flex justify-between mt-6">
+      <div>
+        <p class="text-sm">PREPARED BY: ____________________</p>
+      </div>
+      <div>
+        <p class="text-sm">CHECKED BY: ____________________</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

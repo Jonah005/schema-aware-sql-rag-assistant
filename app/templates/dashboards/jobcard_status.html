@@ -1,0 +1,148 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Job Card Status</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { transition: all 0.2s ease-in-out; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-[Segoe UI,Arial] text-gray-800">
+  <div class="max-w-7xl mx-auto p-6">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800">Job Card Progress Status</h1>
+        <p class="text-gray-500 text-sm mt-1">Track the production progress of all job cards in real-time.</p>
+      </div>
+      <a href="{% url 'user_dashboard' %}" 
+         class="mt-4 md:mt-0 px-5 py-2.5 rounded-lg bg-indigo-600 text-white font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg">
+         ← Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <!-- Pending -->
+      <div class="bg-white shadow-lg rounded-xl border-t-4 border-yellow-500">
+        <div class="p-5">
+          <h2 class="text-xl font-semibold text-yellow-600 mb-2">Pending</h2>
+          <p class="text-sm text-gray-500 mb-4">Job cards created but no progress entries yet.</p>
+          
+          {% if pending %}
+            <ul class="space-y-3">
+              {% for it in pending %}
+                <li class="border border-gray-200 rounded-lg p-3 hover:bg-yellow-50">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <div class="font-semibold text-gray-800">
+                        {% if it.jc and it.jc.job_card_ref %}
+                          {{ it.jc.job_card_ref }}
+                        {% elif it.pmi.job_card_no %}
+                          JC{{ it.pmi.job_card_no|stringformat:"03d" }}
+                        {% else %}
+                          JC{{ it.pmi.pk }}
+                        {% endif %}
+                        — {{ it.pmi.item_description|default:it.pmi.die.item_name }}
+                      </div>
+                      <div class="text-sm text-gray-600">
+                        Required: {{ it.required }} | Foamed: {{ it.foamed }} | Cured: {{ it.cured }}
+                      </div>
+                    </div>
+                    <a href="{% url 'jobcard_detail' it.pmi.pk %}" 
+                       class="text-yellow-600 font-medium hover:underline">Open</a>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-sm text-gray-500">No pending job cards.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Ongoing -->
+      <div class="bg-white shadow-lg rounded-xl border-t-4 border-blue-500">
+        <div class="p-5">
+          <h2 class="text-xl font-semibold text-blue-600 mb-2">Ongoing</h2>
+          <p class="text-sm text-gray-500 mb-4">Progress started but not fully cured.</p>
+
+          {% if ongoing %}
+            <ul class="space-y-3">
+              {% for it in ongoing %}
+                <li class="border border-gray-200 rounded-lg p-3 hover:bg-blue-50">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <div class="font-semibold text-gray-800">
+                        {% if it.jc and it.jc.job_card_ref %}
+                          {{ it.jc.job_card_ref }}
+                        {% elif it.pmi.job_card_no %}
+                          JC{{ it.pmi.job_card_no|stringformat:"03d" }}
+                        {% else %}
+                          JC{{ it.pmi.pk }}
+                        {% endif %}
+                        — {{ it.pmi.item_description|default:it.pmi.die.item_name }}
+                      </div>
+                      <div class="text-sm text-gray-600">
+                        Required: {{ it.required }} | Foamed: {{ it.foamed }} | Cured: {{ it.cured }}
+                      </div>
+                    </div>
+                    <a href="{% url 'jobcard_detail' it.pmi.pk %}" 
+                       class="text-blue-600 font-medium hover:underline">Open</a>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-sm text-gray-500">No ongoing job cards.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Completed -->
+      <div class="bg-white shadow-lg rounded-xl border-t-4 border-green-500">
+        <div class="p-5">
+          <h2 class="text-xl font-semibold text-green-600 mb-2">Completed</h2>
+          <p class="text-sm text-gray-500 mb-4">All required quantities cured successfully.</p>
+
+          {% if completed %}
+            <ul class="space-y-3">
+              {% for it in completed %}
+                <li class="border border-gray-200 rounded-lg p-3 hover:bg-green-50">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <div class="font-semibold text-gray-800">
+                        {% if it.jc and it.jc.job_card_ref %}
+                          {{ it.jc.job_card_ref }}
+                        {% elif it.pmi.job_card_no %}
+                          JC{{ it.pmi.job_card_no|stringformat:"03d" }}
+                        {% else %}
+                          JC{{ it.pmi.pk }}
+                        {% endif %}
+                        — {{ it.pmi.item_description|default:it.pmi.die.item_name }}
+                      </div>
+                      <div class="text-sm text-gray-600">
+                        Required: {{ it.required }} | Foamed: {{ it.foamed }} | Cured: {{ it.cured }}
+                      </div>
+                    </div>
+                    <a href="{% url 'jobcard_detail' it.pmi.pk %}" 
+                       class="text-green-600 font-medium hover:underline">Open</a>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-sm text-gray-500">No completed job cards.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

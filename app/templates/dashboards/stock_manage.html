@@ -1,0 +1,204 @@
+{% if messages %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var msgs = ["{{ messages|join:'","'|escapejs }}"];
+      msgs.forEach(function(msg) {
+        if (msg) alert(msg);
+      });
+    });
+  </script>
+{% endif %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stock Management - MSME</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Force all inputs to always show their boxes */
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #d1d5db; /* gray-300 */
+      border-radius: 0.375rem; /* rounded-md */
+      padding: 0.5rem 0.75rem; /* px-3 py-2 */
+      background-color: white;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #3b82f6; /* blue-500 */
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.3);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-blue-800 text-white shadow-md py-4">
+    <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+      <h1 class="text-2xl font-semibold tracking-wide">Stock Management</h1>
+      <a href="{% url 'store_dashboard' %}"
+         class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md text-sm font-medium">
+         ← Back to Inventory Dashboard
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-grow flex justify-center items-start mt-12 px-6">
+    <div class="w-full max-w-5xl bg-white shadow-xl rounded-2xl p-8 border border-gray-200">
+
+      <!-- Title -->
+      <div class="mb-8 border-b pb-4">
+        <h2 class="text-3xl font-bold text-gray-800">Manage Stock (Add / Deduct)</h2>
+        <p class="text-gray-500 text-sm mt-1">Select an item and update its stock details below.</p>
+      </div>
+
+      <!-- Form -->
+      <form method="post" class="space-y-8">
+        {% csrf_token %}
+        <input type="hidden" name="add_item" value="1" />
+
+        <!-- Search -->
+        <div class="mb-6">
+          <label for="item_search" class="block text-gray-700 font-medium mb-1">Search Item</label>
+          <input type="text" id="item_search" placeholder="Search item code or name...">
+        </div>
+
+        <!-- Item Selector -->
+        <div>
+          <label for="item_code_select" class="block text-gray-700 font-medium mb-1">Select Item Code</label>
+          <select name="item_code" id="item_code_select" required>
+            <option value="">-- Select Item Code (from Die Register) --</option>
+            {% for entry in dies_data %}
+              {% with d=entry.die stock=entry.stock %}
+                <option value="{{ d.item_code }}"
+                  data-item='{"item_name": "{{ d.item_name|escapejs }}", "id":"{{ d.id }}", "od":"{{ d.od }}", "t1":"{{ d.t1 }}", "t2":"{{ d.t2 }}", "material":"{{ d.material|escapejs }}", "die_no":"{{ d.die_no }}", "stock": {{ stock|default:0 }}, "rack_main": "{{ entry.rack_main|escapejs }}", "rack_sub": "{{ entry.rack_sub|escapejs }}" }'>
+                  {{ d.item_code }} - {{ d.item_name }}
+                </option>
+              {% endwith %}
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Auto-filled item details -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+          <div><label class="block text-gray-700 font-medium mb-1">Item Name</label><input type="text" name="item_name" id="item_name" readonly></div>
+          <div><label class="block text-gray-700 font-medium mb-1">ID</label><input type="text" name="inner_id" id="inner_id" readonly></div>
+          <div><label class="block text-gray-700 font-medium mb-1">OD</label><input type="text" name="od" id="od" readonly></div>
+          <div><label class="block text-gray-700 font-medium mb-1">T1</label><input type="text" name="t1" id="t1" readonly></div>
+          <div><label class="block text-gray-700 font-medium mb-1">T2</label><input type="text" name="t2" id="t2" readonly></div>
+          <div><label class="block text-gray-700 font-medium mb-1">Material</label><input type="text" name="material" id="material" readonly></div>
+          <div><label class="block text-gray-700 font-medium mb-1">Die No</label><input type="text" name="die_no" id="die_no" readonly></div>
+          <div><label class="block text-gray-700 font-medium mb-1">Rack Main</label><input type="text" id="rack_main" name="rack_main"></div>
+          <div><label class="block text-gray-700 font-medium mb-1">Rack Sub</label><input type="text" id="rack_sub" name="rack_sub"></div>
+        </div>
+
+        <!-- Stock Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div><label class="block text-gray-700 font-medium mb-1">Current Stock</label><input type="number" name="current_stock" id="current_stock" min="0"></div>
+
+          <div>
+            <label class="block text-gray-700 font-medium mb-1">Stock Action</label>
+            <select id="stock_action" name="stock_action" class="hidden">
+              <option value="add">Add Quantity</option>
+              <option value="deduct">Deduct Quantity</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Add / Deduct Inputs -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div id="add_fields">
+            <label class="block text-gray-700 font-medium mb-1">Added Quantity</label>
+            <input type="number" name="added_qty" id="added_qty" min="0" placeholder="Qty added">
+            <label class="block text-gray-700 font-medium mb-1 mt-4">Added Date</label>
+            <input type="date" name="added_date" id="added_date">
+          </div>
+
+          <div id="deduct_fields" class="hidden">
+            <label class="block text-gray-700 font-medium mb-1">Deducted Quantity</label>
+            <input type="number" name="deducted_qty" id="deducted_qty" min="0" placeholder="Qty deducted">
+            <label class="block text-gray-700 font-medium mb-1 mt-4">Deducted Date</label>
+            <input type="date" name="deducted_date" id="deducted_date">
+          </div>
+        </div>
+
+        <!-- Other Fields -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div><label class="block text-gray-700 font-medium mb-1">Customer Code (optional)</label><input type="text" name="customer_code"></div>
+          <div><label class="block text-gray-700 font-medium mb-1">Remark</label><input type="text" name="remark"></div>
+        </div>
+
+        <div class="flex justify-end mt-10">
+          <button type="submit"
+            class="bg-blue-700 hover:bg-blue-800 text-white px-8 py-3 rounded-lg font-semibold shadow-md transition duration-300">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-gray-300 py-4 mt-12">
+    <div class="max-w-7xl mx-auto text-center text-sm">
+      © 2025 MSME Stock Management | Designed with ❤️ using Tailwind CSS
+    </div>
+  </footer>
+
+  <!-- JS -->
+  <script>
+    const select = document.getElementById('item_code_select');
+    if (select) {
+      select.addEventListener('change', function() {
+        const opt = select.selectedOptions[0];
+        if (!opt || !opt.dataset.item) return;
+        try {
+          const data = JSON.parse(opt.dataset.item);
+          document.getElementById('item_name').value = data.item_name || '';
+          document.getElementById('inner_id').value = data.id || '';
+          document.getElementById('od').value = data.od || '';
+          document.getElementById('t1').value = data.t1 || '';
+          document.getElementById('t2').value = data.t2 || '';
+          document.getElementById('material').value = data.material || '';
+          document.getElementById('die_no').value = data.die_no || '';
+          document.getElementById('current_stock').value = data.stock ?? '';
+          document.getElementById('rack_main').value = data.rack_main || '';
+          document.getElementById('rack_sub').value = data.rack_sub || '';
+          document.getElementById('stock_action').classList.remove('hidden');
+        } catch (e) {
+          console.error('invalid data', e);
+        }
+      });
+
+      const searchInput = document.getElementById('item_search');
+      if (searchInput) {
+        searchInput.addEventListener('input', function() {
+          const q = this.value.trim().toLowerCase();
+          if (!q) return;
+          const opts = Array.from(select.options).slice(1);
+          const match = opts.find(o => o.text.toLowerCase().includes(q));
+          if (match) {
+            select.value = match.value;
+            select.dispatchEvent(new Event('change'));
+          }
+        });
+      }
+    }
+
+    // Toggle add/deduct fields
+    const actionSelect = document.getElementById('stock_action');
+    if (actionSelect) {
+      actionSelect.addEventListener('change', function() {
+        const val = this.value;
+        document.getElementById('add_fields').classList.toggle('hidden', val !== 'add');
+        document.getElementById('deduct_fields').classList.toggle('hidden', val !== 'deduct');
+      });
+      actionSelect.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

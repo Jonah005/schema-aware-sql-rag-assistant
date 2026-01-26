@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Job Card</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            color: #000;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            border: 1px solid #000;
+            padding: 4px;
+            vertical-align: middle;
+        }
+
+        .no-border {
+            border: none !important;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .header {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            padding: 6px 0;
+        }
+
+        .small {
+            font-size: 10px;
+        }
+
+        .spacer {
+            height: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- TITLE -->
+<table>
+    <tr>
+        <td class="header bold" colspan="12">JOB CARD</td>
+    </tr>
+</table>
+
+<!-- BASIC DETAILS -->
+<table>
+    <tr>
+        <td class="bold">Press No</td>
+        <td>{{ pmi.press_no|default:"" }}</td>
+
+        <td class="bold">Mould No</td>
+        <td>{{ pmi.die_no }}</td>
+
+        <td class="bold">Job Card No</td>
+        <td>
+            {% if jc %}
+                {{ jc.job_card_ref }}{{ jc.job_card_no|stringformat:"03d" }}
+            {% else %}
+                JC{{ pmi.pk }}
+            {% endif %}
+        </td>
+    </tr>
+
+    <tr>
+        <td class="bold">Customer</td>
+        <td colspan="3">
+            {% if pmi.mapping.customer %}
+                {{ pmi.mapping.customer.customer_code }}
+            {% endif %}
+        </td>
+
+        <td class="bold">Item</td>
+        <td colspan="3">{{ pmi.item_description }}</td>
+    </tr>
+</table>
+
+<div class="spacer"></div>
+
+<!-- MAIN JOB TABLE (LIKE PAPER FORMAT) -->
+<table>
+    <tr class="bold center">
+        <td width="4%">SL</td>
+        <td width="10%">Date</td>
+        <td width="18%">Moulder Name</td>
+        <td width="10%">Process</td>
+        <td width="10%">Reqd Qty</td>
+        <td width="10%">Recvd Qty</td>
+        <td width="10%">Balance</td>
+        <td width="10%">Stock</td>
+        <td width="18%">Remarks</td>
+    </tr>
+
+    {% for e in progress_entries %}
+    <tr class="center">
+        <td>{{ forloop.counter }}</td>
+        <td>{{ e.date }}</td>
+        <td>{{ e.worker_name }}</td>
+        <td>{{ e.get_process_display }}</td>
+        <td>
+            {% if jc %}
+                {{ jc.required_qty }}
+            {% else %}
+                {{ pmi.required_qty }}
+            {% endif %}
+        </td>
+        <td>{{ e.qty }}</td>
+        <td></td>
+        <td></td>
+        <td>{{ e.remarks }}</td>
+    </tr>
+    {% endfor %}
+
+    {% if progress_entries|length < 8 %}
+        {% for i in "12345678"|slice:":8"|make_list %}
+        <tr style="height:22px">
+            <td>&nbsp;</td><td></td><td></td><td></td>
+            <td></td><td></td><td></td><td></td><td></td>
+        </tr>
+        {% endfor %}
+    {% endif %}
+</table>
+
+<div class="spacer"></div>
+
+<!-- FOOTER TOTALS -->
+<table>
+    <tr>
+        <td class="bold">Total Foamed</td>
+        <td>{{ totals.foamed|default:0 }}</td>
+
+        <td class="bold">Total Cured</td>
+        <td>{{ totals.cured|default:0 }}</td>
+
+        <td class="bold">Required Qty</td>
+        <td>
+            {% if jc %}
+                {{ jc.required_qty }}
+            {% else %}
+                {{ pmi.required_qty }}
+            {% endif %}
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

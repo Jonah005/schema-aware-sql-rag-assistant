@@ -1,0 +1,215 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>
+    Job Card - {{ pmi.job_card_ref|default:"JC" }}{% if pmi.job_card_no %}{{ pmi.job_card_no|stringformat:"03d" }}{% endif %}
+  </title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 text-gray-800 font-sans p-6">
+
+  <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg p-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-semibold text-gray-800">Production Status Updating Window</h1>
+        <p class="text-sm text-gray-500 mt-1">Job progress and updates</p>
+      </div>
+      <div class="flex gap-2 mt-3 sm:mt-0">
+          <a href="{% url 'jobcard_pdf' pmi.pk %}?entries=1" class="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition">Generate PDF</a>
+        <a href="{% url 'user_dashboard' %}" class="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition">Back to Jobcards</a>
+      </div>
+    </div>
+
+    <!-- Job Info -->
+    <div class="mt-6">
+      <div class="bg-yellow-100 border-l-4 border-yellow-500 rounded-md p-4">
+        <table class="w-full text-sm">
+          <tbody>
+            <tr class="border-b border-gray-200">
+              <td class="py-2 font-semibold w-32">OA NO:</td>
+              <td class="py-2">{{ pmi.mapping.oa_no }}</td>
+              <td class="py-2 font-semibold w-32">JC NO:</td>
+              <td class="py-2">
+                {% if pmi.job_card_ref %}
+                  {{ pmi.job_card_ref }}
+                {% elif pmi.job_card_no %}
+                  JC{{ pmi.job_card_no|stringformat:"03d" }}
+                {% else %}
+                  JC{{ pmi.pk }}
+                {% endif %}
+              </td>
+              <td class="py-2 font-semibold w-40">CUSTOMER CODE:</td>
+              <td class="py-2">{% if pmi.mapping.customer %}{{ pmi.mapping.customer.customer_code }}{% endif %}</td>
+            </tr>
+
+            <tr class="border-b border-gray-200">
+              <td class="py-2 font-semibold">ITEM NAME:</td>
+              <td class="py-2" colspan="3">{{ pmi.item_description }}</td>
+              <td class="py-2 font-semibold">ID:</td>
+              <td class="py-2">{{ pmi.id_val }}</td>
+            </tr>
+
+            <tr class="border-b border-gray-200">
+              <td class="py-2 font-semibold">Material:</td>
+              <td class="py-2">{{ pmi.material }}</td>
+              <td class="py-2 font-semibold">Curing Temp:</td>
+              <td class="py-2">
+                {% if die_obj %}{{ die_obj.curing_temp }}{% endif %}
+              </td>
+              <td class="py-2 font-semibold">Curing Time:</td>
+              <td class="py-2">
+                {% if die_obj %}{{ die_obj.curing_time }}{% endif %}
+              </td>
+            </tr>
+
+            <tr>
+              <td class="py-2 font-semibold">PRESS NO:</td>
+              <td class="py-2"></td>
+              <td class="py-2 font-semibold">DIE NO:</td>
+              <td class="py-2">{{ pmi.die_no }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Daily Progress Table -->
+    <div class="mt-8">
+      <h2 class="text-lg font-semibold mb-3">Daily Progress</h2>
+      <div class="overflow-x-auto rounded-lg border border-gray-200">
+        <table class="w-full text-sm border-collapse">
+          <thead class="bg-gray-800 text-white">
+            <tr>
+              <th class="p-3 text-left">Date</th>
+              <th class="p-3 text-left">Worker</th>
+              <th class="p-3 text-left">Process</th>
+              <th class="p-3 text-left">Qty</th>
+              <th class="p-3 text-left">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in progress_entries %}
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-3">{{ e.date }}</td>
+              <td class="p-3">{{ e.worker_name }}</td>
+              <td class="p-3">{{ e.get_process_display }}</td>
+              <td class="p-3">{{ e.qty }}</td>
+              <td class="p-3">{{ e.remarks }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" class="p-4 text-center text-gray-500">No progress entries yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="bg-gray-50 font-semibold">
+            <tr>
+              <td colspan="2" class="p-3">Totals</td>
+              <td class="p-3">Foamed: {{ totals.foamed|default:0 }} / Cured: {{ totals.cured|default:0 }}</td>
+              <td class="p-3">Required: {% if jc %}{{ jc.required_qty }}{% else %}{{ pmi.required_qty }}{% endif %}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Add Daily Progress -->
+    <div class="mt-10">
+      <h2 class="text-lg font-semibold mb-3">Add Daily Progress</h2>
+      <form id="add_progress_form" method="post"
+        class="bg-gray-50 p-5 rounded-lg border border-gray-200"
+        data-foamed="{{ totals.foamed|default:0 }}"
+        data-cured="{{ totals.cured|default:0 }}"
+        data-required="{% if jc %}{{ jc.required_qty }}{% else %}{{ pmi.required_qty }}{% endif %}">
+        {% csrf_token %}
+        <div class="flex flex-wrap gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Process</label>
+            <select id="process_select" name="process" class="border border-gray-300 rounded-md p-2 w-40">
+              <option value="foaming">Foaming</option>
+              <option value="curing">Curing</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Worker</label>
+            <input type="text" name="worker_name" class="border border-gray-300 rounded-md p-2 w-48"/>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Qty</label>
+            <input id="qty_input" type="number" name="qty" min="0" class="border border-gray-300 rounded-md p-2 w-28"/>
+          </div>
+
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+            <input type="text" name="remarks" class="border border-gray-300 rounded-md p-2 w-full"/>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mt-5">
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Add Entry</button>
+          <a href="{% url 'jobcard_pdf' pmi.pk %}" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition">Generate PDF</a>
+          <a href="{% url 'user_dashboard' %}" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition">Back</a>
+        </div>
+
+        <div class="mt-4 text-sm text-gray-700">
+          <span>Remaining to foam: <strong id="remaining_foam">0</strong></span>
+          <span class="ml-4">Remaining to cure: <strong id="remaining_cure">0</strong></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script>
+  (function(){
+    const form = document.getElementById('add_progress_form');
+    if(!form) return;
+    const processSelect = document.getElementById('process_select');
+    const qtyInput = document.getElementById('qty_input');
+    const remFoamEl = document.getElementById('remaining_foam');
+    const remCureEl = document.getElementById('remaining_cure');
+
+    const foamed = parseInt(form.dataset.foamed || 0);
+    const cured = parseInt(form.dataset.cured || 0);
+    const required = parseInt(form.dataset.required || 0);
+
+    function computeRemaining(){
+      const remainingToFoam = Math.max(0, required - foamed);
+      const remainingToCure = Math.max(0, foamed - cured);
+      return { remainingToFoam, remainingToCure };
+    }
+
+    function updateUI(){
+      const r = computeRemaining();
+      remFoamEl.textContent = r.remainingToFoam;
+      remCureEl.textContent = r.remainingToCure;
+      if(processSelect.value === 'foaming'){
+        qtyInput.value = r.remainingToFoam;
+        qtyInput.max = r.remainingToFoam;
+      } else {
+        qtyInput.value = r.remainingToCure;
+        qtyInput.max = r.remainingToCure;
+      }
+    }
+
+    processSelect.addEventListener('change', updateUI);
+    qtyInput.addEventListener('input', () => {
+      const max = parseInt(qtyInput.max || 0);
+      if(max && parseInt(qtyInput.value || 0) > max){
+        qtyInput.value = max;
+      }
+    });
+
+    updateUI();
+  })();
+  </script>
+</body>
+</html>

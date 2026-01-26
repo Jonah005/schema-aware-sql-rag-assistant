@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production Dashboard - Job Cards</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Add smooth color transitions */
+    * {
+      transition: all 0.2s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-[Segoe UI,Arial]">
+
+  <div class="max-w-7xl mx-auto p-6">
+    
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800">Production Dashboard</h1>
+        <p class="text-gray-500 text-sm mt-1">
+          Job cards created from Product Mapping. Ordered by creation time (oldest first).
+        </p>
+      </div>
+      <div class="flex items-center gap-3 mt-4 md:mt-0">
+          <a href="{% url 'jobcard_status' %}"
+             id="view_status_btn"
+             class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg">
+            View Job Card Status
+          </a>
+
+          <a href="{% url 'transfer_slip' %}"
+             id="transfer_slip_btn"
+             class="px-5 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold shadow-md hover:bg-green-700 hover:shadow-lg">
+            View Transfer Slip
+          </a>
+
+          <form action="{% url 'logout' %}" method="post" class="m-0">
+            {% csrf_token %}
+            <button type="submit"
+                    class="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md hover:bg-red-700 hover:shadow-lg">
+              Logout
+            </button>
+          </form>
+          {% include "dashboards/_urgent_filter.html" %}
+      </div>
+    </div>
+
+    <!-- Dashboard Card -->
+    <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+      {% if pm_items %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm text-left border-collapse">
+          <thead class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white uppercase tracking-wide text-xs font-semibold">
+            <tr>
+              <th class="px-4 py-3">JC Ref</th>
+              <th class="px-4 py-3">Created</th>
+              <th class="px-4 py-3">Mapping ID</th>
+              <th class="px-4 py-3">OA No</th>
+              <th class="px-4 py-3">Customer Code</th>
+              <th class="px-4 py-3">Item</th>
+              <th class="px-4 py-3">ID</th>
+              <th class="px-4 py-3">OD</th>
+              <th class="px-4 py-3">T1</th>
+              <th class="px-4 py-3">T2</th>
+              <th class="px-4 py-3">Die No</th>
+              <th class="px-4 py-3">Required Qty</th>
+              <th class="px-4 py-3">Completed Qty</th>
+              <th class="px-4 py-3">Created By</th>
+              <th class="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody class="divide-y divide-gray-200">
+            {% for p in pm_items %}
+            <tr class="hover:bg-blue-50 transition">
+              <td class="px-4 py-3 font-medium text-gray-800">
+                {% if p.job_card_ref %}
+                  {{ p.job_card_ref }}
+                {% elif p.job_card_no %}
+                  JC{{ p.job_card_no|stringformat:"03d" }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-gray-600">{{ p.created_at|date:"Y-m-d H:i" }}</td>
+              <td class="px-4 py-3 text-gray-600">PM#{{ p.mapping.pk }}</td>
+              <td class="px-4 py-3 text-gray-700">{{ p.mapping.oa_no }}</td>
+              <td class="px-4 py-3 text-gray-700">
+                {% if p.mapping.customer %}
+                  {{ p.mapping.customer.customer_code }}
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-gray-700">{{ p.item_description }}</td>
+              <td class="px-4 py-3">{{ p.id_val }}</td>
+              <td class="px-4 py-3">{{ p.od }}</td>
+              <td class="px-4 py-3">{{ p.t1 }}</td>
+              <td class="px-4 py-3">{{ p.t2 }}</td>
+              <td class="px-4 py-3">{{ p.die_no }}</td>
+              <td class="px-4 py-3 font-semibold text-blue-700">{{ p.required_qty }}</td>
+              <td class="px-4 py-3 font-semibold text-green-700">{{ p.cured_qty|default:0 }}</td>
+              <td class="px-4 py-3 text-gray-700">
+                {% if p.mapping and p.mapping.created_by %}
+                  {{ p.mapping.created_by.username }}
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 flex gap-2">
+                <a href="{% url 'jobcard_detail' p.pk %}" 
+                   class="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 shadow-sm">
+                   View / Create
+                </a>
+                 <a href="{% url 'jobcard_header_pdf' p.pk %}" class="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 shadow-sm">PDF</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-8 text-gray-500 text-center text-sm">
+        No job cards created yet.
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+</body>
+</html>

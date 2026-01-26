@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Planning & Pending Dashboard</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Optional Dashboard Theme -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dashboard: '#f8fafc',
+            header: '#facc15'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-dashboard text-gray-800">
+
+{% load dict_extras %}
+
+
+
+<div class="min-h-screen p-6">
+
+  <!-- Page Header -->
+    <div class="mb-6">
+      {% if urgent_only %}
+        <a href="{% url 'user_dashboard' %}" class="inline-block mb-4 px-4 py-2 rounded-lg bg-gray-200 hover:bg-yellow-400 text-gray-800 font-semibold shadow transition">← Go Back</a>
+      {% else %}
+        <a href="{% url 'admin_dashboard' %}" class="inline-block mb-4 px-4 py-2 rounded-lg bg-gray-200 hover:bg-yellow-400 text-gray-800 font-semibold shadow transition">← Go Back</a>
+      {% endif %}
+    <h2 class="text-2xl font-bold text-gray-800">
+      Planning & Pending Dashboard
+    </h2>
+    <p class="text-sm text-gray-500">
+      Production · Despatch · Outsourcing Monitoring
+    </p>
+  </div>
+
+  <!-- Main Card -->
+  <div class="bg-white rounded-xl shadow-md border border-gray-200">
+
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- Table Wrapper -->
+      <div class="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-xl">
+
+        <table class="min-w-full text-xs text-gray-700 border-collapse">
+
+          <!-- Header -->
+          <thead class="sticky top-0 bg-header text-gray-900 z-10">
+  <tr class="uppercase text-[11px] tracking-wide">
+    <th class="px-3 py-3">Date</th>
+    <th class="px-3 py-3">Customer</th>
+    <th class="px-3 py-3">OA No</th>
+    <th class="px-3 py-3">PO No</th>
+    <th class="px-3 py-3">Drwg No</th>
+    <th class="px-3 py-3">Item</th>
+
+    <th class="px-3 py-3">Qty</th>
+    <th class="px-3 py-3">Material</th>
+    <th class="px-3 py-3">Die</th>
+    <th class="px-3 py-3">Job No</th>
+    <th class="px-3 py-3">Production Qty</th>
+
+    <th class="px-3 py-3">Complete</th>
+
+    {# Dynamic fields start here – MUST match field_widths order #}
+    <th class="px-3 py-3">Urgent</th>
+    <th class="px-3 py-3">Despatched</th>
+    <th class="px-3 py-3">Despatch Date</th>
+    <th class="px-3 py-3">Remark</th>
+    <th class="px-3 py-3">Pending</th>
+    <th class="px-3 py-3">Outsource</th>
+    <th class="px-3 py-3">OS Ordered</th>
+    <th class="px-3 py-3">OS Received</th>
+
+    <th class="px-3 py-3">Action</th>
+  </tr>
+</thead>
+
+
+          <!-- Body -->
+          <tbody class="divide-y divide-gray-200">
+            {% regroup rows by oa_no as oa_groups %}
+            {% for group in oa_groups %}
+              <tr class="bg-yellow-100">
+                <td colspan="100" class="px-3 py-2 font-bold text-lg text-gray-700 border-b-2 border-yellow-300">
+                  OA No: {{ group.grouper }}
+                </td>
+              </tr>
+              {% for row in group.list %}
+              <tr class="hover:bg-gray-50 transition">
+                <td class="px-3 py-2">{{ row.date }}</td>
+                <td class="px-3 py-2 font-semibold">{{ row.customer }}</td>
+                <td class="px-3 py-2">{{ row.oa_no }}</td>
+                <td class="px-3 py-2">{{ row.po_no }}</td>
+                <td class="px-3 py-2">{{ row.drwg_no }}</td>
+                <td class="px-3 py-2">{{ row.item }}</td>
+                  {# Removed input fields for u, v, h #}
+                <td class="px-3 py-2">{{ row.quantity }}</td>
+                <td class="px-3 py-2">{{ row.material }}</td>
+                <td class="px-3 py-2">{{ row.die }}</td>
+                <td class="px-3 py-2">{{ row.job_no }}</td>
+                <td class="px-3 py-2">{{ row.prdn_qty }}</td>
+                <td class="px-3 py-2">
+                  {% if row.cured_qty >= row.prdn_qty and row.prdn_qty > 0 %}
+                    <button class="px-3 py-1 rounded-lg bg-green-500 text-white font-semibold text-xs cursor-default">{{ row.cured_qty }}/{{ row.prdn_qty }} Completed</button>
+                  {% else %}
+                    <button class="px-3 py-1 rounded-lg bg-gray-300 text-gray-700 font-semibold text-xs cursor-default">
+                      {{ row.cured_qty|default:0 }}/{{ row.prdn_qty|default:0 }}
+                    </button>
+                  {% endif %}
+                </td>
+                {% for field, width in field_widths %}
+                    {# Skip removed fields #}
+                  {% if field == 'urgent' %}
+                    <td class="px-2 py-1">
+                      <div class="flex gap-1">
+                        <input type="hidden" name="urgent_{{ row.item_id }}" id="urgent_hidden_{{ row.item_id }}" value="{{ row|get_item:'urgent' }}">
+                        {% if row|get_item:'urgent' == 'Urgent' %}
+                          {% with urgent_class='bg-red-500 text-white' not_urgent_class='bg-white border-gray-300' %}
+                            <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {{ urgent_class }}" onclick="setUrgent('{{ row.item_id }}', 'Urgent', this)">Urgent</button>
+                            <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {{ not_urgent_class }}" onclick="setUrgent('{{ row.item_id }}', 'Not Urgent', this)">Not Urgent</button>
+                          {% endwith %}
+                        {% elif row|get_item:'urgent' == 'Not Urgent' or not row|get_item:'urgent' %}
+                          {% with urgent_class='bg-white border-gray-300' not_urgent_class='bg-gray-400 text-white' %}
+                            <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {{ urgent_class }}" onclick="setUrgent('{{ row.item_id }}', 'Urgent', this)">Urgent</button>
+                            <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {{ not_urgent_class }}" onclick="setUrgent('{{ row.item_id }}', 'Not Urgent', this)">Not Urgent</button>
+                          {% endwith %}
+                        {% else %}
+                          {% with urgent_class='bg-white border-gray-300' not_urgent_class='bg-white border-gray-300' %}
+                            <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {{ urgent_class }}" onclick="setUrgent('{{ row.item_id }}', 'Urgent', this)">Urgent</button>
+                            <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {{ not_urgent_class }}" onclick="setUrgent('{{ row.item_id }}', 'Not Urgent', this)">Not Urgent</button>
+                          {% endwith %}
+                        {% endif %}
+                      </div>
+                    </td>
+                  {% elif field == 'despatched' %}
+                    <td class="px-2 py-1">
+                      <div class="flex gap-1 items-center">
+                        <input type="hidden" name="despatched_{{ row.item_id }}" id="despatched_hidden_{{ row.item_id }}" value="{{ row|get_item:'despatched' }}">
+                        <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {% if row|get_item:'despatched' == 'Despatched' %}bg-green-500 text-white{% else %}bg-white border-gray-300{% endif %}" onclick="setDespatched('{{ row.item_id }}', 'Despatched', this)">Despatched</button>
+                        <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {% if row|get_item:'despatched' == 'Not Despatched' or not row|get_item:'despatched' %}bg-gray-400 text-white{% else %}bg-white border-gray-300{% endif %}" onclick="setDespatched('{{ row.item_id }}', 'Not Despatched', this)">Not Despatched</button>
+                        <button type="button" class="px-2 py-1 rounded-md text-xs font-semibold border focus:outline-none {% if row|get_item:'despatched' == 'Partially Despatched' %}bg-yellow-400 text-white{% else %}bg-white border-gray-300{% endif %}" onclick="setDespatched('{{ row.item_id }}', 'Partially Despatched', this)">Partially Despatched</button>
+                        <input type="number" min="0" name="despatched_qty_{{ row.item_id }}" value="{{ row|get_item:'despatched_qty' }}" placeholder="Despatched Qty" class="border border-gray-300 rounded-md px-2 py-1 text-xs w-20" style="display: {% if row|get_item:'despatched' == 'Partially Despatched' %}inline-block{% else %}none{% endif %};">
+                        {% if row|get_item:'despatched' == 'Despatched' %}
+                          <input type="text" name="despatch_date_{{ row.item_id }}" value="{{ row|get_item:'despatch_date' }}" placeholder="Despatch Date" class="border border-gray-300 rounded-md px-2 py-1 text-xs w-28">
+                        {% endif %}
+                      </div>
+                    </td>
+                  {% else %}
+                    <td class="px-2 py-1">
+                      <input
+                        type="text"
+                        name="{{ field }}_{{ row.item_id }}"
+                        value="{{ row|get_item:field }}"
+                        class="border border-gray-300 rounded-md px-2 py-1 text-xs
+                               focus:ring-2 focus:ring-blue-500 focus:outline-none
+                               bg-white {{ width }}"
+                      >
+                    </td>
+                  {% endif %}
+                {% endfor %}
+                <td class="px-2 py-1">
+                  <button type="submit" name="save_row" value="{{ row.item_id }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg shadow font-semibold text-xs">Save</button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <!-- Footer removed: Save button now per row -->
+
+    </form>
+  </div>
+</div>
+
+<script>
+function setUrgent(itemId, value, btn) {
+  document.getElementById('urgent_hidden_' + itemId).value = value;
+  const parent = btn.parentElement;
+  const buttons = parent.querySelectorAll('button');
+  buttons.forEach(b => {
+    b.classList.remove('bg-red-500', 'text-white', 'bg-gray-400', 'border-gray-300', 'bg-white', 'bg-green-500', 'bg-yellow-400');
+    b.classList.add('bg-white', 'border-gray-300');
+  });
+  if (value === 'Urgent') {
+    btn.classList.remove('bg-white', 'border-gray-300');
+    btn.classList.add('bg-red-500', 'text-white');
+    buttons[1].classList.remove('bg-gray-400', 'text-white');
+  } else {
+    btn.classList.remove('bg-white', 'border-gray-300');
+    btn.classList.add('bg-gray-400', 'text-white');
+    buttons[0].classList.remove('bg-red-500', 'text-white');
+  }
+}
+
+function setDespatched(itemId, value, btn) {
+  document.getElementById('despatched_hidden_' + itemId).value = value;
+  const parent = btn.parentElement;
+  const buttons = parent.querySelectorAll('button');
+  buttons.forEach(b => {
+    b.classList.remove('bg-green-500', 'bg-gray-400', 'bg-yellow-400', 'text-white', 'bg-white', 'border-gray-300');
+    b.classList.add('bg-white', 'border-gray-300');
+  });
+  if (value === 'Despatched') {
+    btn.classList.remove('bg-white', 'border-gray-300');
+    btn.classList.add('bg-green-500', 'text-white');
+  } else if (value === 'Not Despatched') {
+    btn.classList.remove('bg-white', 'border-gray-300');
+    btn.classList.add('bg-gray-400', 'text-white');
+  } else if (value === 'Partially Despatched') {
+    btn.classList.remove('bg-white', 'border-gray-300');
+    btn.classList.add('bg-yellow-400', 'text-white');
+  }
+  // Show/hide quantity and date fields
+  const row = btn.closest('td');
+  const qtyInput = row.querySelector('input[name^="despatched_qty_"]');
+  const dateInput = row.querySelector('input[name^="despatch_date_"]');
+  if (qtyInput) qtyInput.style.display = (value === 'Partially Despatched') ? '' : 'none';
+  if (dateInput) dateInput.style.display = (value === 'Despatched') ? '' : 'none';
+}
+</script>
+</body>
+</html>

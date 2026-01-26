@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Purchase Orders</title>
+  <style>
+    body{font-family:Segoe UI,Arial;background:#f5f7fa;margin:0;padding:20px}
+    .container{max-width:1100px;margin:40px auto;background:#fff;padding:18px;border-radius:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+    th{background:#f2f6fa}
+    .empty{padding:20px;text-align:center;color:#666}
+    a.button{display:inline-block;margin:8px 0;padding:8px 12px;background:#2d7cc8;color:#fff;border-radius:6px;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Purchase Orders</h1>
+    <a href="{% url 'new_purchase_order' %}" class="button">New Purchase Order</a>
+    {% if pos %}
+      <table>
+        <thead>
+          <tr>
+            <th>PO No</th>
+            <th>Entry Date</th>
+            <th>PO Date</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Item Description</th>
+            <th>Quantity</th>
+            <th>OA Number</th>
+            <th>Delivery Date</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pos %}
+            <tr>
+              <td>{{ p.po_no }}</td>
+              <td>{{ p.entry_date }}</td>
+              <td>{{ p.po_date }}</td>
+              <td>{{ p.customer.customer_name }}</td>
+              <td>
+                <form method="post" action="{% url 'update_po_status' p.pk %}">
+                  {% csrf_token %}
+                  <select name="status">
+                    {% for val,label in p.STATUS_CHOICES %}
+                      <option value="{{ val }}" {% if p.status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit">Save</button>
+                </form>
+              </td>
+              <td>{{ p.item_description }}</td>
+              <td>{{ p.quantity }}</td>
+              <td>{{ p.oa_number }}</td>
+              <td>{{ p.delivery_date }}</td>
+              <td>{{ p.price }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">No purchase orders found.</div>
+    {% endif %}
+  </div>
+</body>
+</html>

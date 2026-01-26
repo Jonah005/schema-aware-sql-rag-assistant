@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Die Register</title>
+  <style>
+    body{font-family: Arial, sans-serif; background:#f5f7fa}
+    .container{max-width:1100px;margin:30px auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 6px 15px rgba(0,0,0,0.08)}
+    .header{display:flex;justify-content:space-between;align-items:center}
+    .search{display:flex;gap:10px;align-items:center}
+    input[type=text]{padding:8px;border:1px solid #ccc;border-radius:4px}
+    button{background:#2980b9;color:#fff;padding:8px 12px;border-radius:4px;border:none;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    th,td{padding:10px;border:1px solid #ddd;text-align:left}
+    thead th{background:#ffe600}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Die Register</h2>
+      <div>
+        <a href="{% url 'admin_dashboard' %}" style="margin-right:8px;text-decoration:none;padding:8px 12px;background:#27ae60;color:#fff;border-radius:6px;">Back</a>
+        <a href="{% url 'add_die_register' %}" style="text-decoration:none;padding:8px 12px;background:#2980b9;color:#fff;border-radius:6px;">Add New</a>
+      </div>
+    </div>
+
+    <form method="get" class="search" style="margin-top:12px">
+  <input type="text" name="item_code" placeholder="Item Code" value="{{ request.GET.item_code }}">
+  <input type="text" name="item_name" placeholder="Item Name" value="{{ request.GET.item_name }}">
+  <input type="text" name="id" placeholder="ID" value="{{ request.GET.id }}">
+  <input type="text" name="od" placeholder="OD" value="{{ request.GET.od }}">
+  <input type="text" name="die_no" placeholder="Die No" value="{{ request.GET.die_no }}">
+      <button type="submit">Search</button>
+      <a href="{% url 'die_register_list' %}" style="margin-left:8px;color:#2980b9;text-decoration:none">Clear</a>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Item Code</th>
+          <th>Item Name</th>
+          <th>ID</th>
+          <th>OD</th>
+          <th>T1</th>
+          <th>T2</th>
+          <th>Material</th>
+          <th>Die No</th>
+          <th>New Die</th>
+          <th>Curing Temp</th>
+          <th>Curing Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for die in dies %}
+        <tr>
+          <td>{{ die.item_code }}</td>
+          <td>{{ die.item_name }}</td>
+          <td>{{ die.id }}</td>
+          <td>{{ die.od }}</td>
+          <td>{{ die.t1 }}</td>
+          <td>{{ die.t2 }}</td>
+          <td>{{ die.material }}</td>
+          <td>{{ die.die_no }}</td>
+          <td>{{ die.new_die }}</td>
+          <td>{{ die.curing_temp }}</td>
+          <td>{{ die.curing_time }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" style="text-align:center;color:#666">No records found</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

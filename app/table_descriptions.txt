@@ -1,0 +1,11 @@
+app_customer: Stores customer master data
+app_purchaseorder: Stores purchase / sales orders
+app_productmapping: Groups items under a purchase order
+app_productmappingitem: Stores individual production items
+app_jobcard: Stores job card header details
+app_jobcardprogress: Stores daily production entries
+app_planningpendingentry: Tracks planning status and urgency
+app_dieregister: Master table for dies
+app_material: Material master table
+app_storeitem: Current inventory status
+app_storeitemhistory: Inventory movement history

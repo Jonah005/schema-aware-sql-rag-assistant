@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Accounts Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-slate-50 p-6 text-gray-800">
+
+  <div class="max-w-6xl mx-auto bg-white shadow-xl rounded-2xl p-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-8">
+      <h1 class="text-3xl font-bold text-blue-800 mb-4 sm:mb-0">Accounts Dashboard</h1>
+
+      <div class="flex gap-3">
+        <a href="{% url 'new_purchase_order' %}"
+          class="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-sm transition">
+          ➕ <span>New Purchase Order</span>
+        </a>
+        <form action="{% url 'logout' %}" method="post">
+          {% csrf_token %}
+          <button type="submit"
+            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow-sm transition">
+            Logout
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Table Section -->
+    {% if pos %}
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">Purchase Orders</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full border border-gray-200 rounded-lg overflow-hidden text-sm">
+          <thead class="bg-blue-100 text-blue-800">
+            <tr>
+              <th class="px-4 py-3 text-left">PO No</th>
+              <th class="px-4 py-3 text-left">Entry Date</th>
+              <th class="px-4 py-3 text-left">PO Date</th>
+              <th class="px-4 py-3 text-left">Customer</th>
+              <th class="px-4 py-3 text-left">Item</th>
+              <th class="px-4 py-3 text-left">Qty</th>
+              <th class="px-4 py-3 text-left">OA No</th>
+              <th class="px-4 py-3 text-left">Delivery Date</th>
+              <th class="px-4 py-3 text-left">Price</th>
+              <th class="px-4 py-3 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for p in pos %}
+              <tr class="hover:bg-blue-50 transition">
+                <td class="px-4 py-3 font-medium text-gray-700">{{ p.po_no }}</td>
+                <td class="px-4 py-3">{{ p.entry_date }}</td>
+                <td class="px-4 py-3">{{ p.po_date }}</td>
+                <td class="px-4 py-3">
+                  {% if p.customer %}
+                    {{ p.customer.customer_name }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3">{{ p.item_description|truncatechars:40 }}</td>
+                <td class="px-4 py-3">{{ p.quantity }}</td>
+                <td class="px-4 py-3">{{ p.oa_number }}</td>
+                <td class="px-4 py-3">{{ p.delivery_date }}</td>
+                <td class="px-4 py-3 font-semibold text-gray-700">₹{{ p.price }}</td>
+                <td class="px-4 py-3">
+                  <form method="post" action="{% url 'update_po_status' p.pk %}" class="flex items-center gap-2">
+                    {% csrf_token %}
+                    <select name="status"
+                      class="rounded-md border border-gray-300 text-sm text-gray-700 p-1.5 bg-gray-50 focus:ring-2 focus:ring-blue-400 focus:outline-none">
+                      {% for val, label in p.STATUS_CHOICES %}
+                        <option value="{{ val }}" {% if p.status == val %}selected{% endif %}>
+                          {{ label }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit"
+                      class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-md transition">
+                      Save
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-gray-600 mt-4 text-center">No purchase orders yet. Create one using the button above.</p>
+    {% endif %}
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product Mapping - Planning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-gray-50 min-h-screen py-8 px-4 text-gray-800">
+  <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg p-8 transition-all hover:shadow-xl">
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-blue-700">Product Mapping (Planning)</h1>
+      <a href="{% url 'admin_dashboard' %}" class="text-sm text-gray-600 hover:text-blue-600 transition">
+        ← Back to Dashboard
+      </a>
+    </div>
+
+    <p class="text-gray-600 text-sm mb-6">
+      Select a Purchase Order, map PO items to dies, compute balances, and create job cards (<span class="font-semibold">JC###</span>).
+    </p>
+
+    {% if created_cards %}
+      <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+        <h2 class="text-green-700 font-semibold mb-2">✅ Created Job Cards</h2>
+        <ul class="list-disc pl-5 text-green-800 text-sm">
+          {% for c in created_cards %}
+            <li>{{ c.ref }} — {{ c.item_name }} (Required: {{ c.required_qty }})</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form id="mappingForm" method="post" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- PO Selection Section -->
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div class="col-span-2">
+          <label class="block text-sm font-medium text-gray-700">Select Purchase Order</label>
+          <select id="poSelect" class="mt-1 w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+            <option value="">-- Choose PO --</option>
+            {% for po in pos %}
+              <option 
+                value="{{ po.id }}" 
+                data-po_no="{{ po.po_no }}"
+                data-customer="{% if po.customer %}{{ po.customer.customer_name|escape }}{% endif %}"
+                data-customer_code="{% if po.customer %}{{ po.customer.customer_code|escape }}{% endif %}"
+                data-oa="{{ po.oa_number|default_if_none:''|escape }}"
+                data-entry_date="{% if po.entry_date %}{{ po.entry_date|date:'Y-m-d' }}{% endif %}"
+                data-po_date="{% if po.po_date %}{{ po.po_date|date:'Y-m-d' }}{% endif %}"
+                data-itemdesc="{{ po.item_description|default_if_none:''|escape }}"
+                data-quantity="{{ po.quantity }}">
+                {{ po.po_no }} — {% if po.customer %}{{ po.customer.customer_name }}{% else %}(no customer){% endif %} — {{ po.item_description|truncatechars:60 }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700">OA No</label>
+          <input id="po_oa_no" readonly name="oa_no" class="w-full mt-1 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Entry Date</label>
+          <input id="po_entry_date" readonly class="w-full mt-1 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">PO No</label>
+          <input id="po_no" readonly class="w-full mt-1 border-gray-300 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">PO Date</label>
+          <input id="po_date" readonly class="w-full mt-1 border-gray-300 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Customer</label>
+          <input id="po_customer" readonly class="w-full mt-1 border-gray-300 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Customer Code</label>
+          <input id="po_customer_code" readonly class="w-full mt-1 border-gray-300 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Item Name (as PO)</label>
+          <input id="po_item_name" readonly class="w-full mt-1 border-gray-300 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Drawing No</label>
+          <input id="drawing_no" name="drawing_no" placeholder="Enter drawing no" class="w-full mt-1 border-gray-300 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Quantity</label>
+          <input id="po_quantity" readonly class="w-full mt-1 border-gray-300 rounded-lg text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Mapping Date</label>
+          <input id="entry_date" name="entry_date" type="date" class="w-full mt-1 border-gray-300 rounded-lg text-sm"
+                 {% if pm and pm.entry_date %}value="{{ pm.entry_date|date:'Y-m-d' }}"{% endif %}>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex flex-wrap gap-3 mt-2">
+        <button type="button" id="addRow" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">+ Add Item Row</button>
+        <button type="button" id="resetRows" class="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition text-sm">Reset</button>
+      </div>
+
+      <!-- Mapping Table -->
+      <div class="overflow-x-auto mt-4">
+        <table id="mappingTable" class="w-full border text-sm text-left">
+          <thead class="bg-blue-50 border-b">
+            <tr>
+              <th class="px-3 py-2">Select Die</th>
+              <th class="px-3 py-2">Item Name</th>
+              <th class="px-3 py-2">ID</th>
+              <th class="px-3 py-2">OD</th>
+              <th class="px-3 py-2">T1</th>
+              <th class="px-3 py-2">T2</th>
+              <th class="px-3 py-2">Die No</th>
+              <th class="px-3 py-2">Requested Qty</th>
+              <th class="px-3 py-2">Current Stock</th>
+              <th class="px-3 py-2">Balance</th>
+              <th class="px-3 py-2">Required (balance + 5)</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            <!-- Rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <input type="hidden" name="mapping_json" id="mapping_json">
+      <input type="hidden" name="po_id" id="po_id">
+      <input type="hidden" name="oa_no" id="oa_no">
+      <input type="hidden" name="created_by" value="{{ request.user.pk }}">
+
+      <div class="flex gap-4 pt-4">
+        <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition text-sm font-semibold">Create Job Cards</button>
+        <a href="{% url 'admin_dashboard' %}" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-semibold">Back</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- JS Logic -->
+    <script>
+    document.getElementById('poSelect').addEventListener('change', function() {
+      var sel = this.selectedOptions[0];
+      document.getElementById('po_quantity').value = sel ? (sel.dataset.quantity || '') : '';
+    });
+    const dies = JSON.parse('{{ dies_data_json|escapejs }}');
+
+    // When a PO is selected, populate header fields from the option's data- attributes
+    const poSelect = document.getElementById('poSelect');
+    if (poSelect) {
+      poSelect.addEventListener('change', function() {
+        const opt = this.selectedOptions[0];
+        document.getElementById('po_id').value = opt ? opt.value : '';
+        if (!opt) {
+          document.getElementById('po_no').value = '';
+          document.getElementById('po_customer').value = '';
+          document.getElementById('po_customer_code').value = '';
+          document.getElementById('po_oa_no').value = '';
+          document.getElementById('oa_no').value = '';
+          document.getElementById('po_entry_date').value = '';
+          document.getElementById('po_date').value = '';
+          document.getElementById('po_item_name').value = '';
+          return;
+        }
+        const ds = opt.dataset || {};
+        document.getElementById('po_no').value = ds.po_no || '';
+        document.getElementById('po_customer').value = ds.customer || '';
+        document.getElementById('po_customer_code').value = ds.customer_code || '';
+        document.getElementById('po_oa_no').value = ds.oa || '';
+        document.getElementById('oa_no').value = ds.oa || '';
+        document.getElementById('po_entry_date').value = ds.entry_date || '';
+        document.getElementById('po_date').value = ds.po_date || '';
+        document.getElementById('po_item_name').value = ds.itemdesc || '';
+        // keep drawing_no empty for manual entry
+        document.getElementById('drawing_no').value = '';
+      });
+    }
+
+    function makeDieOptions() {
+      return dies.map(d => 
+        `<option value="${d.item_code}" data-id="${d.id}" data-od="${d.od}" data-t1="${d.t1}" data-t2="${d.t2}" data-die_no="${d.die_no}" data-current_stock="${d.current_stock}" data-item_name="${(d.item_name||'').replace(/"/g,'\"')}">${d.item_code} — ${d.item_name}</option>`
+      ).join('');
+    }
+
+    function addRow(data = {}, parentName = null, isSub = false) {
+      const tbody = document.querySelector('#mappingTable tbody');
+      const tr = document.createElement('tr');
+      tr.className = isSub ? "bg-gray-50 text-sm" : "";
+      tr.innerHTML = `
+        <td class="px-2 py-1"><select class="dieSelect border-gray-300 rounded-md w-full text-sm">${makeDieOptions()}</select></td>
+        <td class="col-itemname px-2 py-1"></td>
+        <td class="col-id px-2 py-1"></td>
+        <td class="col-od px-2 py-1"></td>
+        <td class="col-t1 px-2 py-1"></td>
+        <td class="col-t2 px-2 py-1"></td>
+        <td class="col-dieno px-2 py-1"></td>
+        <td class="px-2 py-1"><input type="number" class="qtyRequested border-gray-300 rounded-md w-20 text-sm text-center" min="0" value="${data.qty_requested || 0}"></td>
+        <td class="col-stock px-2 py-1"></td>
+        <td class="col-balance px-2 py-1"></td>
+        <td class="col-required px-2 py-1">
+          <input type="number" class="requiredExtra border-gray-300 rounded-md w-16 text-sm text-center" min="0" value="5">
+          <span class="ml-1 text-xs text-gray-500">= <span class="requiredTotal">5</span></span>
+        </td>
+        <td class="px-2 py-1 flex gap-2">
+          ${isSub 
+            ? `<button type="button" class="removeRow bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1 text-xs">Remove</button>` 
+            : `<button type="button" class="addSub bg-teal-600 hover:bg-teal-700 text-white rounded-md px-2 py-1 text-xs">Add Sub-item</button>
+               <button type="button" class="removeRow bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1 text-xs">Remove</button>`}
+        </td>`;
+      tbody.appendChild(tr);
+
+      const sel = tr.querySelector('.dieSelect');
+      const qtyInp = tr.querySelector('.qtyRequested');
+      qtyInp.addEventListener('input', () => computeRow(tr));
+      tr.querySelector('.requiredExtra').addEventListener('input', () => computeRow(tr));
+      const updateFromSelect = () => {
+        const opt = sel.selectedOptions[0];
+        tr.querySelector('.col-id').textContent = opt?.dataset.id || '';
+        tr.querySelector('.col-od').textContent = opt?.dataset.od || '';
+        tr.querySelector('.col-t1').textContent = opt?.dataset.t1 || '';
+        tr.querySelector('.col-t2').textContent = opt?.dataset.t2 || '';
+        tr.querySelector('.col-dieno').textContent = opt?.dataset.die_no || '';
+        tr.querySelector('.col-stock').textContent = opt?.dataset.current_stock || '0';
+        tr.querySelector('.col-itemname').textContent = opt?.dataset.item_name || '';
+        computeRow(tr);
+      };
+      sel.addEventListener('change', updateFromSelect);
+      qtyInp.addEventListener('input', () => computeRow(tr));
+      tr.querySelector('.removeRow').addEventListener('click', () => tr.remove());
+      const addSubBtn = tr.querySelector('.addSub');
+      if (addSubBtn) {
+        addSubBtn.addEventListener('click', () => {
+          const parent = tr.querySelector('.col-itemname').textContent.trim();
+          addRow({}, parent, true);
+        });
+      }
+      // Ensure the row is populated immediately with the currently selected option
+      try {
+        // if no explicit selection was made, the browser defaults to the first option
+        if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+      } catch (e) {}
+      updateFromSelect();
+    }
+
+    function computeRow(tr) {
+      const qty = parseInt(tr.querySelector('.qtyRequested').value || 0);
+      const stock = parseInt(tr.querySelector('.col-stock').textContent || 0);
+      const balance = Math.max(0, qty - stock);
+      tr.querySelector('.col-balance').textContent = balance;
+      const extraInput = tr.querySelector('.requiredExtra');
+      const extra = parseInt(extraInput?.value || 5);
+      const totalRequired = balance + extra;
+      tr.querySelector('.requiredTotal').textContent = totalRequired;
+    }
+
+    document.getElementById('addRow').addEventListener('click', () => addRow());
+    document.getElementById('resetRows').addEventListener('click', () => document.querySelector('#mappingTable tbody').innerHTML = '');
+
+    document.getElementById('mappingForm').addEventListener('submit', function(e) {
+      const rows = Array.from(document.querySelectorAll('#mappingTable tbody tr'));
+      if (rows.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one item row.');
+        return;
+      }
+      const mapping = rows.map(r => {
+        const sel = r.querySelector('.dieSelect');
+        return {
+          die_code: sel?.value || '',
+          item_name: r.querySelector('.col-itemname')?.textContent.trim() || '',
+          qty_requested: r.querySelector('.qtyRequested')?.value || 0,
+          current_stock: r.querySelector('.col-stock')?.textContent || 0,
+          required_extra: r.querySelector('.requiredExtra')?.value || 5,
+          parent_name: r.dataset.parentName || null
+        };
+      });
+      document.getElementById('mapping_json').value = JSON.stringify(mapping);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => addRow());
+  </script>
+</body>
+</html>

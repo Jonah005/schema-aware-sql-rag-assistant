@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Materials & Customers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-slate-100 text-gray-800">
+
+<!-- HEADER -->
+<header class="bg-white shadow sticky top-0 z-40">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-blue-700">Materials & Customers</h1>
+
+    <a href="{% url 'admin_dashboard' %}"
+       class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold shadow">
+      ← Back to Dashboard
+    </a>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="max-w-6xl mx-auto px-6 py-10">
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+
+    <!-- CUSTOMER CARD -->
+    <section class="bg-white rounded-xl shadow p-6">
+      <h2 class="text-xl font-semibold text-red-600 mb-4">
+        Customer Details
+      </h2>
+
+      {% if customer_success %}
+        <div class="mb-4 text-green-600 font-semibold">{{ customer_success }}</div>
+      {% endif %}
+      {% if customer_error %}
+        <div class="mb-4 text-red-600 font-semibold">{{ customer_error }}</div>
+      {% endif %}
+
+      <form method="post" action="?add_customer=1" class="space-y-4 mb-6">
+        {% csrf_token %}
+
+        <div>
+          <label class="block text-sm font-medium mb-1">Customer Code</label>
+          <input type="number" name="customer_code" min="1" step="1" required
+                 class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="Enter positive integer">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-1">Customer Name</label>
+          <input type="text" name="customer_name" required
+                 class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="Enter customer name">
+        </div>
+
+        <div class="flex gap-3">
+          <button type="submit"
+                  class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
+            Add Customer
+          </button>
+          <button type="button" onclick="resetCustomerForm()"
+                  class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-semibold">
+            Reset
+          </button>
+        </div>
+      </form>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border">
+          <thead class="bg-yellow-400 text-gray-900">
+            <tr>
+              <th class="px-3 py-2 border">Customer Name</th>
+              <th class="px-3 py-2 border">Customer Code</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for customer in customers %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-3 py-2 border">{{ customer.customer_name }}</td>
+              <td class="px-3 py-2 border">{{ customer.customer_code }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="2" class="text-center py-4 text-gray-500 italic">
+                No customers found
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MATERIAL CARD -->
+    <section class="bg-white rounded-xl shadow p-6">
+      <h2 class="text-xl font-semibold text-purple-600 mb-4">
+        Material Details
+      </h2>
+
+      {% if material_success %}
+        <div class="mb-4 text-green-600 font-semibold">{{ material_success }}</div>
+      {% endif %}
+      {% if material_error %}
+        <div class="mb-4 text-red-600 font-semibold">{{ material_error }}</div>
+      {% endif %}
+
+      <form method="post" action="?add_material=1" class="space-y-4 mb-6">
+        {% csrf_token %}
+
+        <div>
+          <label class="block text-sm font-medium mb-1">Material Name</label>
+          <input type="text" name="material_name" required
+                 class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="Enter material name">
+        </div>
+
+        <div class="flex gap-3">
+          <button type="submit"
+                  class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
+            Add Material
+          </button>
+          <button type="button" onclick="resetMaterialForm()"
+                  class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-semibold">
+            Reset
+          </button>
+        </div>
+      </form>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border">
+          <thead class="bg-yellow-400 text-gray-900">
+            <tr>
+              <th class="px-3 py-2 border">Material Name</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for material in materials %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-3 py-2 border">{{ material.material_name }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td class="text-center py-4 text-gray-500 italic">
+                No materials found
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+function resetCustomerForm() {
+  document.querySelector('[name="customer_code"]').value = '';
+  document.querySelector('[name="customer_name"]').value = '';
+}
+function resetMaterialForm() {
+  document.querySelector('[name="material_name"]').value = '';
+}
+</script>
+
+</body>
+</html>
