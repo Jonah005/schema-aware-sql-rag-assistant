@@ -1,264 +1,773 @@
-# Schema-Aware SQL Chatbot (Django + Postgres + Qdrant + Redis + LLM)
+# Schema-Aware SQL RAG Assistant
 
-This repository contains a **schema-aware, read-only SQL chatbot** for your ERP database.
+A schema-aware, read-only AI assistant that allows users to query structured PostgreSQL databases using natural language.
 
-Users chat in a web UI → backend retrieves the most relevant schema slice (RAG) → an LLM generates a strict **QuerySpec JSON** → backend validates/repairs it against the real schema → compiles it into **safe SQL** → executes **read-only** query → returns a formatted answer.
-
----
-
-## What this chatbot does
-
-- ✅ Answers natural-language questions by querying your Postgres DB
-- ✅ Uses **schema RAG** (Qdrant vector search + lexical + coverage scoring) to keep LLM grounded
-- ✅ LLM outputs **strict JSON** (QuerySpec) instead of raw SQL
-- ✅ Converts QuerySpec → SQL with FK-aware joins + guardrails
-- ✅ Stores chat history + clarification state in **Redis**
-- ✅ Optional: publish “approved intent mappings” into Qdrant to improve routing over time
+Instead of allowing an LLM to generate and execute unrestricted SQL, the system retrieves the most relevant portion of the database schema using RAG, generates a structured `QuerySpec`, validates and repairs that specification against the real schema, converts it into guarded SQL, executes the query in read-only mode, and returns a formatted response.
 
 ---
 
-## End-to-end request flow
+## Overview
 
-1. **UI** (`chat.html`) sends `POST` JSON `{ message, conversation_id }` to Django `chat_api` with CSRF.
-2. **View** (`chatbot_views.py`) validates input and calls:
-   - `answer_user_question(request.user, message, session_key=request.session.session_key)`
-3. **Engine** (`chatbot_engine.py`):
-   - Loads history/state from Redis (`chatbot_memory.py`)
-   - Applies history/topic drift gating (prevents old topic hijacking new query)
-   - (Optional) resolves ambiguous IDs by probing DB (ID resolver)
-   - Retrieves a **schema slice** via Qdrant (`chatbot_retrieval.py`)
-   - Calls LLM to generate QuerySpec (`llm_gateway.py`)
-   - Validates/repairs spec against schema/types (`chatbot_schema.py`)
-   - Builds safe SQL + executes read-only (`chatbot_sql.py`)
-   - Formats and returns answer (`llm_gateway.py`)
-   - Saves the new turn back into Redis
+Business users often need information stored across complex relational databases without knowing SQL or understanding the underlying schema.
 
----
+Traditional text-to-SQL systems can introduce problems such as:
 
-## File guide (what each file does)
+- Hallucinated tables or columns
+- Invalid joins
+- Incorrect assumptions about schema structure
+- Unsafe or unrestricted SQL generation
+- Loss of conversational context
 
-### UI + Django views
-- **`chat.html`**
-  - Frontend chat UI template.
-  - Posts to `{% url 'chat_api' %}` with `X-CSRFToken` header.
-- **`chatbot_views.py`**
-  - `chat_page`: serves UI and sets CSRF cookie (`ensure_csrf_cookie`)
-  - `chat_api`: POST endpoint → calls `answer_user_question()` and returns `{reply, conversation_id}`
+This project takes a more controlled approach by combining:
 
-### Orchestration / brain
-- **`chatbot_engine.py`**
-  - Main orchestrator: `answer_user_question()`
-  - Controls:
-    - history gating / topic drift detection
-    - table clarification logic (disabled by default via `ENABLE_TABLE_PICKER=0`)
-    - ID resolver (optional DB probe)
-    - schema retrieval + LLM QuerySpec loop
-    - type-aware repair
-    - SQL execution and answer formatting
-
-### Memory / session state (Redis)
-- **`chatbot_memory.py`**
-  - Stores per-user + per-session:
-    - message history
-    - pending clarification state
-  - TTL + max-history trimming
-
-### Schema + docs
-- **`chatbot_schema.py`**
-  - Introspects DB schema (tables, columns, types, foreign keys)
-  - Builds schema chunks for embedding/indexing
-  - Provides cached FK edges + types for validation
-- **`chatbot_table_docs.py`** + **`table_descriptions.txt`**
-  - Loads human descriptions per table (helps retrieval + clarity)
-  - IMPORTANT: `chatbot_engine.py` expects this file at:
-    - `BASE_DIR/app/resources/table_descriptions.txt`
-
-### Retrieval / RAG (Qdrant)
-- **`chatbot_retrieval.py`**
-  - Uses SentenceTransformers embeddings + Qdrant vector search
-  - Combines signals:
-    - vector similarity
-    - lexical matching
-    - requested-field coverage (via LLM field extraction)
-  - Adds bridge tables using FK paths to keep joins possible
-  - Also supports “intent_collection” lookups (developer-approved mappings)
-
-### QuerySpec → SQL (safe execution)
-- **`chatbot_sql.py`**
-  - Converts QuerySpec JSON into safe SQL with quoting/guardrails
-  - Uses FK edges to build safe joins
-  - Executes read-only SQL
-
-### Qdrant utilities + management commands
-- **`reindex_schema.py`**
-  - Django management command: embeds schema chunks and indexes them into Qdrant
-  - Safe to re-run (stable UUID keys)
-- **`publish_intents.py`**
-  - Django management command: publishes approved intent mappings from `ChatbotReviewItem`
-  - Writes them into Qdrant `intent_collection`
-- **`chatbot_qdrant.py`**
-  - Helper for intent upserts (older/smaller helper; overlaps with retrieval upsert)
-
-### LLM gateway
-- **`llm_gateway.py`**
-  - Talks to LLM provider (defaults: Hugging Face Router)
-  - Generates strict JSON QuerySpec (`llm_generate_queryspec`)
-  - Extracts requested fields (`llm_extract_fields`) used by retrieval
-  - Optional LLM answer formatting (`ANSWER_WITH_LLM=1`)
-  - NOTE: Contains “anchor date/time” (Dubai) computed at import-time:
-    - `ANCHOR_TIMEZONE`, `ANCHOR_NOW`, etc.
-
-### Local services
-- **`docker-compose.yml`**
-  - Starts only:
-    - Qdrant (6333/6334)
-    - Redis (6379)
-  - Postgres is assumed to be configured externally (or run separately)
-
-### Optional sample DB data
-- **`data.json`**
-  - Django fixture you can load with `loaddata` (optional)
+- Schema-aware Retrieval-Augmented Generation
+- Structured LLM query planning
+- Schema and type validation
+- Foreign-key-aware SQL generation
+- Read-only execution
+- Conversational memory
+- Clarification and topic-drift handling
 
 ---
 
-## Required services
+## Key Features
 
-You need:
-- **Postgres** (your ERP DB; configured in Django `DATABASES`)
-- **Redis** (chat memory/state)
-- **Qdrant** (schema & intents vector store)
-- **LLM access** (Hugging Face Router by default)
-
----
-
-## Environment variables (.env)
-
-Create a `.env` in your project root (or export env vars).
-
-### Redis
-- `REDIS_URL=redis://localhost:6379/0`
-- `CHAT_TTL_SECONDS=86400`
-- `CHAT_MAX_HISTORY=30`
-
-### Qdrant
-- `QDRANT_URL=http://localhost:6333`
-- `QDRANT_API_KEY=` (optional)
-- `QDRANT_SCHEMA_COLLECTION=schema_collection`
-- `QDRANT_INTENT_COLLECTION=intent_collection`
-- `EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`
-- `EMBEDDING_DIM=384`
-
-### LLM (Hugging Face Router default)
-- `LLM_PROVIDER=hf`
-- `HF_TOKEN=...`
-- `HF_BASE_URL=https://router.huggingface.co/v1`
-- `HF_MODEL=HuggingFaceTB/SmolLM3-3B:hf-inference`
-
-### Engine knobs (optional)
-- `SCHEMA_RAG_MIN_SCORE=0.55`
-- `ENABLE_TABLE_PICKER=0`
-- `ENABLE_ID_RESOLVER=1`
-- `HISTORY_MAX_FOR_LLM=12`
-- `TOPIC_JACCARD_THRESHOLD=0.18`
-- `DEBUG_QUERY_SPEC=1`
-
-### LLM gateway knobs (optional)
-- `CHAT_HISTORY_MAX_FOR_LLM=12`
-- `ANSWER_WITH_LLM=0`
-- `LLM_TIMEOUT_SECONDS=60`
-- `LLM_RETRY_MAX=4`
-
-### Table descriptions
-Engine reads from:
-- `BASE_DIR/app/resources/table_descriptions.txt`
-
-(Optionally used by gateway too)
-- `TABLE_DESCRIPTIONS_PATH=/absolute/path/to/table_descriptions.txt`
+- Natural-language querying of PostgreSQL databases
+- Schema-aware RAG using Qdrant
+- Vector similarity, lexical matching and requested-field coverage
+- Structured `QuerySpec` generation instead of unrestricted raw SQL
+- Validation and repair against the live database schema
+- Foreign-key-aware join construction
+- Guarded read-only SQL execution
+- Redis-backed conversation memory
+- Clarification-state management
+- Topic-drift detection
+- Optional ambiguous-ID resolution
+- Optional developer-approved intent mappings
+- Optional LLM-based answer formatting
 
 ---
 
-## How to run locally (fresh clone)
+## Architecture
 
-### 1) Start Redis + Qdrant (Docker)
-From the folder containing `docker-compose.yml`:
-'''
-docker compose up -d
-'''
-Verify:
+```mermaid
+flowchart TD
+    A[User Question] --> B[Django Web Interface]
+    B --> C[Conversation Context / Redis]
+    C --> D[Schema Retrieval]
 
-Qdrant: http://localhost:6333
+    D --> D1[Vector Similarity]
+    D --> D2[Lexical Matching]
+    D --> D3[Requested Field Coverage]
 
-Redis: localhost:6379
+    D1 --> E[Relevant Schema Slice]
+    D2 --> E
+    D3 --> E
 
-2) Install Python dependencies
+    E --> F[LLM]
+    F --> G[Structured QuerySpec JSON]
 
-Create a virtual env and install your project requirements. At minimum you’ll need:
+    G --> H[Schema / Type Validation]
+    H --> I[Repair if Required]
+    I --> J[FK-Aware SQL Builder]
 
-django
+    J --> K[Read-Only PostgreSQL Query]
+    K --> L[Formatted Response]
+    L --> M[Save Conversation State to Redis]
+```
 
-redis
+---
 
-qdrant-client
+## Safety-Oriented Query Design
 
-sentence-transformers
+A key design decision in this project is that the LLM does **not directly produce SQL for unrestricted execution**.
 
-requests
+Instead:
 
-python-dotenv (optional)
+1. The relevant database schema is retrieved.
+2. The LLM generates a structured `QuerySpec`.
+3. The specification is checked against the real schema.
+4. Types, fields and relationships are validated.
+5. Invalid elements can be repaired before execution.
+6. SQL is constructed by the backend.
+7. The resulting query is executed through the read-only workflow.
+
+This reduces reliance on unconstrained LLM-generated SQL and keeps database access grounded in known schema information.
+
+---
+
+## Tech Stack
+
+| Area | Technology |
+|---|---|
+| Backend | Python, Django |
+| Database | PostgreSQL |
+| Vector Database | Qdrant |
+| Conversation State | Redis |
+| Embeddings | SentenceTransformers |
+| LLM Integration | Hugging Face Router |
+| Local Services | Docker Compose |
+| AI Pattern | Schema-Aware RAG / Text-to-SQL |
+
+---
+
+# End-to-End Request Flow
+
+## 1. User Interface
+
+`chat.html`
+
+The web UI sends a POST request containing:
+
+```json
+{
+  "message": "user question",
+  "conversation_id": "optional conversation identifier"
+}
+```
+
+Requests are sent to the Django `chat_api` endpoint with CSRF protection.
+
+---
+
+## 2. Django View
+
+`chatbot_views.py`
+
+The view validates the request and calls:
+
+```python
+answer_user_question(
+    request.user,
+    message,
+    session_key=request.session.session_key
+)
+```
+
+The API then returns:
+
+```json
+{
+  "reply": "...",
+  "conversation_id": "..."
+}
+```
+
+---
+
+## 3. Conversation State
+
+`chatbot_memory.py`
+
+Redis stores:
+
+- Message history
+- Pending clarification state
+- Per-user and per-session context
+
+The memory layer also manages:
+
+- TTL
+- Maximum history length
+- Session continuity
+
+---
+
+## 4. Topic and History Gating
+
+Before generating a new query, the engine checks whether previous conversation history is still relevant.
+
+This helps prevent an earlier topic from incorrectly influencing a new request.
+
+The behavior is controlled through values such as:
+
+```env
+HISTORY_MAX_FOR_LLM=12
+TOPIC_JACCARD_THRESHOLD=0.18
+```
+
+---
+
+## 5. Optional ID Resolution
+
+The engine can optionally probe the database when a user provides an ambiguous identifier.
+
+This behavior is controlled by:
+
+```env
+ENABLE_ID_RESOLVER=1
+```
+
+---
+
+## 6. Schema Retrieval
+
+`chatbot_retrieval.py`
+
+The retrieval layer selects the most relevant portion of the database schema.
+
+It combines:
+
+- SentenceTransformer embeddings
+- Qdrant vector similarity
+- Lexical matching
+- Requested-field coverage
+- Foreign-key relationships
+
+The system can also add bridge tables when necessary so valid joins remain possible between relevant entities.
+
+---
+
+## 7. QuerySpec Generation
+
+`llm_gateway.py`
+
+The selected schema context is sent to the configured LLM.
+
+Instead of generating raw SQL, the model produces a structured `QuerySpec` JSON representation.
+
+The gateway also supports:
+
+- Requested-field extraction
+- QuerySpec generation
+- Optional final-answer formatting
+
+---
+
+## 8. Schema Validation and Repair
+
+`chatbot_schema.py`
+
+The generated QuerySpec is checked against the actual database schema.
+
+Validation includes:
+
+- Table existence
+- Column existence
+- Column types
+- Foreign-key relationships
+- Join compatibility
+
+The system can repair incompatible or invalid elements before SQL construction.
+
+---
+
+## 9. Safe SQL Construction
+
+`chatbot_sql.py`
+
+The validated QuerySpec is converted into SQL by backend logic.
+
+The SQL layer:
+
+- Uses known schema metadata
+- Applies quoting and guardrails
+- Uses known foreign-key relationships
+- Builds valid joins
+- Executes through the read-only workflow
+
+---
+
+## 10. Response Generation
+
+The query result is returned to the user in a formatted response.
+
+Optional LLM answer formatting can be enabled with:
+
+```env
+ANSWER_WITH_LLM=1
+```
+
+Otherwise, the backend formats the result directly.
+
+---
+
+## 11. Conversation Update
+
+The completed interaction is saved back into Redis so the next request can use relevant conversational context.
+
+---
+
+# Project Structure
+
+## UI and Django Views
+
+### `chat.html`
+
+Frontend chat interface.
+
+Posts to:
+
+```django
+{% url 'chat_api' %}
+```
+
+using the `X-CSRFToken` header.
+
+### `chatbot_views.py`
+
+Contains:
+
+- `chat_page`
+- `chat_api`
+
+`chat_page` serves the UI and sets the CSRF cookie.
+
+`chat_api` receives user messages and passes them to the chatbot engine.
+
+---
+
+## Orchestration
+
+### `chatbot_engine.py`
+
+Main orchestration layer.
+
+Primary function:
+
+```python
+answer_user_question()
+```
+
+It coordinates:
+
+- Conversation history
+- Topic-drift detection
+- Clarification handling
+- Optional ID resolution
+- Schema retrieval
+- LLM QuerySpec generation
+- Schema validation
+- Type-aware repair
+- SQL generation
+- SQL execution
+- Response formatting
+- Memory updates
+
+---
+
+## Memory
+
+### `chatbot_memory.py`
+
+Stores conversation state in Redis.
+
+Includes:
+
+- User/session history
+- Clarification state
+- TTL handling
+- History trimming
+
+---
+
+## Schema Management
+
+### `chatbot_schema.py`
+
+Responsible for database schema introspection.
+
+It retrieves:
+
+- Tables
+- Columns
+- Data types
+- Foreign keys
+
+It also:
+
+- Builds schema chunks for embedding
+- Provides cached foreign-key edges
+- Provides type metadata for validation
+
+---
+
+### `chatbot_table_docs.py`
+
+Loads human-readable table descriptions.
+
+These descriptions help improve:
+
+- Retrieval quality
+- Schema interpretation
+- LLM context
+
+The engine expects:
+
+```text
+BASE_DIR/app/resources/table_descriptions.txt
+```
+
+---
+
+# Retrieval and RAG
+
+## `chatbot_retrieval.py`
+
+Uses SentenceTransformers and Qdrant to retrieve relevant schema information.
+
+Retrieval combines:
+
+- Vector similarity
+- Lexical matching
+- Requested-field coverage
+
+The requested fields can be extracted through the LLM before schema retrieval.
+
+The retrieval layer also uses foreign-key paths to identify bridge tables when required.
+
+---
+
+## Intent Collection
+
+The system optionally supports developer-approved intent mappings stored in Qdrant.
+
+These can improve routing for known or previously reviewed requests.
+
+---
+
+# QuerySpec to SQL
+
+## `chatbot_sql.py`
+
+Converts validated QuerySpec objects into SQL.
+
+Responsibilities include:
+
+- Safe quoting
+- Join construction
+- Foreign-key-aware relationships
+- Query guardrails
+- Read-only execution
+
+---
+
+# Qdrant Utilities
+
+## `reindex_schema.py`
+
+Django management command used to embed and index the current database schema into Qdrant.
+
+Run:
+
+```bash
+python manage.py reindex_schema
+```
+
+The command uses stable UUID keys and can be safely re-run.
+
+Run it whenever the database schema changes.
+
+---
+
+## `publish_intents.py`
+
+Publishes approved intent mappings from `ChatbotReviewItem`.
 
 Example:
+
+```bash
+python manage.py publish_intents --limit 100
+```
+
+The command:
+
+1. Finds approved clarification items
+2. Upserts them into the Qdrant intent collection
+3. Marks them as published to avoid duplication
+
+---
+
+## `chatbot_qdrant.py`
+
+Utility for intent upserts.
+
+This overlaps with some functionality inside the retrieval layer and is retained as a smaller helper.
+
+---
+
+# LLM Gateway
+
+## `llm_gateway.py`
+
+Handles communication with the configured LLM provider.
+
+Default provider:
+
+**Hugging Face Router**
+
+Responsibilities include:
+
+- QuerySpec generation
+- Requested-field extraction
+- Optional answer formatting
+
+The gateway also maintains anchor date/time values using the configured Dubai timezone.
+
+---
+
+# Required Services
+
+The application requires:
+
+- PostgreSQL
+- Redis
+- Qdrant
+- LLM access
+
+PostgreSQL contains the structured data being queried.
+
+Redis stores conversation state.
+
+Qdrant stores schema embeddings and optional intent mappings.
+
+The LLM generates structured query specifications and can optionally format answers.
+
+---
+
+# Environment Variables
+
+Create a `.env` file in the project root or export the variables through your environment.
+
+> Do not commit real API keys, credentials or production database passwords.
+
+---
+
+## Redis
+
+```env
+REDIS_URL=redis://localhost:6379/0
+CHAT_TTL_SECONDS=86400
+CHAT_MAX_HISTORY=30
+```
+
+---
+
+## Qdrant
+
+```env
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+QDRANT_SCHEMA_COLLECTION=schema_collection
+QDRANT_INTENT_COLLECTION=intent_collection
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+EMBEDDING_DIM=384
+```
+
+---
+
+## LLM
+
+```env
+LLM_PROVIDER=hf
+HF_TOKEN=your_token_here
+HF_BASE_URL=https://router.huggingface.co/v1
+HF_MODEL=HuggingFaceTB/SmolLM3-3B:hf-inference
+```
+
+---
+
+## Engine Configuration
+
+```env
+SCHEMA_RAG_MIN_SCORE=0.55
+ENABLE_TABLE_PICKER=0
+ENABLE_ID_RESOLVER=1
+HISTORY_MAX_FOR_LLM=12
+TOPIC_JACCARD_THRESHOLD=0.18
+DEBUG_QUERY_SPEC=1
+```
+
+---
+
+## LLM Gateway Configuration
+
+```env
+CHAT_HISTORY_MAX_FOR_LLM=12
+ANSWER_WITH_LLM=0
+LLM_TIMEOUT_SECONDS=60
+LLM_RETRY_MAX=4
+```
+
+---
+
+## Table Descriptions
+
+Default path:
+
+```text
+BASE_DIR/app/resources/table_descriptions.txt
+```
+
+Optional override:
+
+```env
+TABLE_DESCRIPTIONS_PATH=/absolute/path/to/table_descriptions.txt
+```
+
+---
+
+# Running Locally
+
+## 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd schema-aware-sql-rag-assistant
+```
+
+---
+
+## 2. Start Redis and Qdrant
+
+The included Docker Compose configuration starts:
+
+- Qdrant
+- Redis
+
+Run:
+
+```bash
+docker compose up -d
+```
+
+Verify:
+
+```text
+Qdrant: http://localhost:6333
+Redis: localhost:6379
+```
+
+PostgreSQL is expected to be configured separately.
+
+---
+
+## 3. Create a Virtual Environment
+
+```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
+```
 
+### Windows
+
+```bash
+.venv\Scripts\activate
+```
+
+### macOS / Linux
+
+```bash
+source .venv/bin/activate
+```
+
+---
+
+## 4. Install Dependencies
+
+```bash
 pip install -r requirements.txt
-# or:
-pip install django redis qdrant-client sentence-transformers requests python-dotenv
+```
 
+Core dependencies include:
 
-3) Configure Postgres in Django + migrate
+- Django
+- Redis
+- qdrant-client
+- sentence-transformers
+- requests
+- python-dotenv
 
-Ensure DATABASES is configured in settings.py, then:
+---
 
+## 5. Configure PostgreSQL
 
+Configure Django's `DATABASES` setting for the PostgreSQL database you want the assistant to query.
+
+Then run:
+
+```bash
 python manage.py migrate
+```
 
-Optional: load sample data fixture:
+---
+
+## 6. Optional Sample Data
+
+If using the included Django fixture:
+
+```bash
 python manage.py loaddata data.json
+```
 
-4) Place table_descriptions.txt where the engine expects it
+Use sample or synthetic data when running the project publicly.
 
-Create this path in your project if it doesn’t exist:
+---
 
+## 7. Add Table Descriptions
+
+Create:
+
+```text
 <BASE_DIR>/app/resources/table_descriptions.txt
+```
 
+Add human-readable descriptions of the relevant tables.
 
-Put your table descriptions file there.
+---
 
-5) Index schema into Qdrant (REQUIRED)
+## 8. Index the Database Schema
 
-This builds the schema vector index used by retrieval:
+This step is required.
 
+Run:
+
+```bash
 python manage.py reindex_schema
+```
 
+This creates the schema vector index used during retrieval.
 
-Run this whenever schema changes (migrations / new tables / new columns).
+Re-run the command whenever:
 
-6) Create a user and run server (views require login)
+- Tables are added
+- Columns are changed
+- Migrations modify the schema
 
+---
+
+## 9. Create a User
+
+The chat interface requires authentication.
+
+Run:
+
+```bash
 python manage.py createsuperuser
+```
+
+---
+
+## 10. Start Django
+
+```bash
 python manage.py runserver
+```
 
+Open:
 
+```text
+http://127.0.0.1:8000/chat/
+```
 
+---
 
+# URL Configuration
 
-7) Ensure URLs are wired (example)
+The chat interface expects a URL named `chat_api`.
 
-Your chat.html uses {% url 'chat_api' %} so your urls must define a chat_api name.
+Example:
 
-Example urls.py:
-
+```python
 from django.urls import path
 from app.chatbot_views import chat_page, chat_api
 
@@ -266,42 +775,135 @@ urlpatterns = [
     path("chat/", chat_page, name="chat_page"),
     path("api/chat/", chat_api, name="chat_api"),
 ]
+```
 
+---
 
-Now open:
+# Publishing Approved Intents
 
-http://127.0.0.1:8000/chat/
+If `ChatbotReviewItem` is being used, approved clarification mappings can be published to Qdrant.
 
-Publishing approved intents (optional)
+Run:
 
-If you use a ChatbotReviewItem model and approve intent payloads, publish them to Qdrant:
+```bash
 python manage.py publish_intents --limit 100
+```
 
-This:
+The command:
 
-reads approved items from DB (status="approved", kind="clarification")
+- Reads approved items
+- Filters for clarification-type entries
+- Upserts them into the Qdrant intent collection
+- Marks successful entries as published
 
-upserts to Qdrant intent_collection
+---
 
-marks them as published to avoid duplicates
+# Troubleshooting
 
-Troubleshooting
-Qdrant dimension mismatch error during reindex_schema
+## Qdrant Dimension Mismatch
 
-If you changed embedding model/dim:
+If the embedding model or embedding dimension changes, the existing Qdrant collection may no longer match.
 
-Either delete/recreate the Qdrant collection, OR
+Either:
 
-Set EMBEDDING_DIM to match the existing collection.
+1. Delete and recreate the collection
 
-First run is slow
+or
 
-SentenceTransformer model loads/downloads on first run. Normal.
+2. Set:
 
-Retrieval feels “empty” / bad table selection
+```env
+EMBEDDING_DIM=
+```
 
-Confirm python manage.py reindex_schema completed successfully.
+to match the existing collection.
 
-Confirm Qdrant is reachable at QDRANT_URL.
+---
 
-Confirm your DB schema is accessible (permissions to read schema metadata).
+## Slow First Run
+
+SentenceTransformer models may need to download and initialise during the first execution.
+
+Subsequent runs should avoid this initial model-download overhead.
+
+---
+
+## Poor Schema Retrieval
+
+If retrieval returns weak or irrelevant schema context:
+
+1. Confirm Qdrant is running.
+2. Confirm `python manage.py reindex_schema` completed successfully.
+3. Verify the application can access database metadata.
+4. Check table descriptions.
+5. Review `SCHEMA_RAG_MIN_SCORE`.
+6. Confirm the embedding model matches the indexed collection.
+
+---
+
+## Missing Table Descriptions
+
+Verify this file exists:
+
+```text
+BASE_DIR/app/resources/table_descriptions.txt
+```
+
+or configure:
+
+```env
+TABLE_DESCRIPTIONS_PATH=
+```
+
+---
+
+# Security Notes
+
+This repository is intended to demonstrate a controlled approach to LLM-assisted database querying.
+
+When adapting it to another environment:
+
+- Use a database account with read-only permissions
+- Never commit `.env` files
+- Never commit API keys or database credentials
+- Avoid publishing real customer or company data
+- Use synthetic fixtures for public demonstrations
+- Review persisted vector-store data before making it public
+- Apply appropriate authentication and authorization for production deployments
+
+---
+
+# Current Limitations
+
+The system still depends on the quality of:
+
+- Database schema metadata
+- Table descriptions
+- Embedding retrieval
+- LLM QuerySpec generation
+- Schema relationships
+
+Complex or ambiguous questions may still require clarification.
+
+The project is designed to reduce unsafe or invalid generation, not to guarantee that every natural-language request can be translated into a correct database query.
+
+---
+
+# Future Improvements
+
+Potential improvements include:
+
+- Expanded automated evaluation of generated QuerySpecs
+- More advanced clarification handling
+- Improved retrieval ranking
+- Additional LLM providers
+- Better observability and tracing
+- Automated schema-change detection and reindexing
+- More detailed query auditing
+- Improved user-facing result visualisation
+
+---
+
+## Project Goal
+
+The goal of this project is to explore a safer and more structured alternative to unrestricted text-to-SQL generation by combining schema-aware retrieval, constrained LLM planning and deterministic backend validation before database execution.
